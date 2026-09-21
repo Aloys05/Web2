@@ -49,4 +49,14 @@ document.addEventListener('DOMContentLoaded', () => {
     e.preventDefault();
     console.log('Sign up submitted — connect this to your backend.');
   });
+
+  // Footer hamburger menu (mobile only — hidden via CSS on larger screens)
+  const footerToggle = document.getElementById('footerToggle');
+  const footerNav = document.getElementById('footerNav');
+
+  footerToggle.addEventListener('click', () => {
+    const isOpen = footerToggle.getAttribute('aria-expanded') === 'true';
+    footerToggle.setAttribute('aria-expanded', String(!isOpen));
+    footerNav.hidden = isOpen;
+  });
 });
