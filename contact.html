@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AloSwift</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="contact.css">
+</head>
+<body>
+
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a href="index.html" class="logo">AloSwift</a>
+
+            <div class="auth" id="auth">
+                <button class="auth__trigger" id="loginTrigger" aria-pressed="false">Log in</button>
+                <button class="auth__trigger auth__trigger--primary" id="signupTrigger" aria-pressed="false">Sign up</button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="contact">
+  <div class="contact__header">
+    <p class="contact__kicker">GET IN TOUCH</p>
+    <h1 class="contact__title">Contact</h1>
+    <p class="contact__subtitle">
+      Have a question, project idea, or you have a complaint just send your details to our customer help desk.
+      Send us a message and we will get back to you as soon as possible.
+    </p>
+  </div>
+
+  <div class="contact__content">
+
+    <div class="contact__info">
+      <div class="contact__item">
+        <span class="contact__label">EMAIL</span>
+        <a href="mailto:info@aloswift.com">info@aloswift.com</a>
+      </div>
+
+      <div class="contact__item">
+        <span class="contact__label">PHONE</span>
+        <a href="tel:+264810000000">+264 81 757 1307</a>
+      </div>
+
+      <div class="contact__item">
+        <span class="contact__label">LOCATION</span>
+        <p>Windhoek, Namibia</p>
+      </div>
+    </div>
+
+    <form class="contact-form">
+
+      <div class="contact-form__row">
+
+        <label class="contact-field">
+          <span>Name</span>
+          <input
+            type="text"
+            name="name"
+            placeholder="Your name"
+            required
+          >
+        </label>
+
+        <label class="contact-field">
+          <span>Email</span>
+          <input
+            type="email"
+            name="email"
+            placeholder="Your email"
+            required
+          >
+        </label>
+
+      </div>
+
+      <label class="contact-field">
+        <span>Subject</span>
+        <input
+          type="text"
+          name="subject"
+          placeholder="What is this about?"
+          required
+        >
+      </label>
+
+      <label class="contact-field">
+        <span>Message</span>
+        <textarea
+          name="message"
+          rows="7"
+          placeholder="Write your message..."
+          required
+        ></textarea>
+      </label>
+
+      <button type="submit" class="contact-submit">
+        Send Message
+      </button>
+
+    </form>
+
+  </div>
+</section>
+
+        <section class="auth-view" id="authView" hidden>
+            <div class="auth-card" id="loginPanel">
+                <h2 class="auth-card__title">Log in</h2>
+                <form class="auth-form" id="loginForm">
+                    <label class="field">
+                        <span>Email</span>
+                        <input type="email" name="email" autocomplete="email" required>
+                    </label>
+                    <label class="field">
+                        <span>Password</span>
+                        <input type="password" name="password" autocomplete="current-password" required>
+                    </label>
+                    <button type="submit" class="field-submit">Log in</button>
+                </form>
+                <p class="auth-form__foot">
+                    New here? <button type="button" class="link-btn" data-switch-to="signup">Create an account</button>
+                </p>
+                <p class="auth-form__foot">
+                    <a href="shop.html" class="link-btn">Continue browsing as a guest</a>
+                </p>
+            </div>
+
+            <div class="auth-card" id="signupPanel" hidden>
+                <h2 class="auth-card__title">Sign up</h2>
+                <form class="auth-form" id="signupForm">
+                    <label class="field">
+                        <span>Full name</span>
+                        <input type="text" name="name" autocomplete="name" required>
+                    </label>
+                    <label class="field">
+                        <span>Email</span>
+                        <input type="email" name="email" autocomplete="email" required>
+                    </label>
+                    <label class="field">
+                        <span>Password</span>
+                        <input type="password" name="password" autocomplete="new-password" required>
+                    </label>
+                    <button type="submit" class="field-submit">Create account</button>
+                </form>
+                <p class="auth-form__foot">
+                    Already have an account? <button type="button" class="link-btn" data-switch-to="login">Log in</button>
+                </p>
+                <p class="auth-form__foot">
+                    <a href="shop.html" class="link-btn">Continue browsing as a guest</a>
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <div class="site-footer__top">
+                <a href="index.html" class="logo logo--small">AloSwift</a>
+
+                <button class="footer-toggle" id="footerToggle" aria-expanded="false" aria-controls="footerNav">
+                    <span class="footer-toggle__bar"></span>
+                    <span class="footer-toggle__bar"></span>
+                    <span class="footer-toggle__bar"></span>
+                    <span class="sr-only">Menu</span>
+                </button>
+            </div>
+
+            <nav class="footer-nav" id="footerNav" hidden>
+                <a href="shop.html" class="nav-link">Shop</a>
+                <a href="about.html" class="nav-link">About</a>
+                <a href="#" class="nav-link">Contact</a>
+            </nav>
+
+            <p class="footer-copy">&copy; 2026 AloSwift. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src=""></script>
+</body>
+</html>
