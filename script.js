@@ -5,14 +5,20 @@ document.addEventListener('DOMContentLoaded', () => {
   const authView = document.getElementById('authView');
   const loginPanel = document.getElementById('loginPanel');
   const signupPanel = document.getElementById('signupPanel');
+  const loginForm = document.getElementById('loginForm');
+  const signupForm = document.getElementById('signupForm');
+  const footerToggle = document.getElementById('footerToggle');
+  const footerNav = document.getElementById('footerNav');
+  const themeToggle = document.getElementById('themeToggle');
 
   function showAuth(which) {
+    if (!heroView || !authView || !loginPanel || !signupPanel) return;
     heroView.hidden = true;
     authView.hidden = false;
     loginPanel.hidden = which !== 'login';
     signupPanel.hidden = which !== 'signup';
-    loginTrigger.setAttribute('aria-pressed', String(which === 'login'));
-    signupTrigger.setAttribute('aria-pressed', String(which === 'signup'));
+    if (loginTrigger) loginTrigger.setAttribute('aria-pressed', String(which === 'login'));
+    if (signupTrigger) signupTrigger.setAttribute('aria-pressed', String(which === 'signup'));
 
     const panel = which === 'login' ? loginPanel : signupPanel;
     const firstField = panel.querySelector('input');
@@ -20,67 +26,68 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function showHero() {
+    if (!authView || !heroView) return;
     authView.hidden = true;
     heroView.hidden = false;
-    loginTrigger.setAttribute('aria-pressed', 'false');
-    signupTrigger.setAttribute('aria-pressed', 'false');
+    if (loginTrigger) loginTrigger.setAttribute('aria-pressed', 'false');
+    if (signupTrigger) signupTrigger.setAttribute('aria-pressed', 'false');
   }
 
-  loginTrigger.addEventListener('click', () => showAuth('login'));
-  signupTrigger.addEventListener('click', () => showAuth('signup'));
+  // Only wire these up if the inline auth view exists on this page
+  if (loginTrigger && authView) loginTrigger.addEventListener('click', () => showAuth('login'));
+  if (signupTrigger && authView) signupTrigger.addEventListener('click', () => showAuth('signup'));
 
-  // Switch between login/signup from within a panel
   document.querySelectorAll('[data-switch-to]').forEach(btn => {
     btn.addEventListener('click', () => showAuth(btn.dataset.switchTo));
   });
 
-  // Escape brings back the browsing view
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !authView.hidden) showHero();
+    if (authView && !authView.hidden && e.key === 'Escape') showHero();
   });
 
-  // Demo submit handlers (replace with real requests to your backend)
-  document.getElementById('loginForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    console.log('Log in submitted — connect this to your backend.');
-  });
-
-  document.getElementById('signupForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    console.log('Sign up submitted — connect this to your backend.');
-  });
-
-  // Footer hamburger menu (mobile only — hidden via CSS on larger screens)
-  const footerToggle = document.getElementById('footerToggle');
-  const footerNav = document.getElementById('footerNav');
-
-  footerToggle.addEventListener('click', () => {
-    const isOpen = footerToggle.getAttribute('aria-expanded') === 'true';
-    footerToggle.setAttribute('aria-expanded', String(!isOpen));
-    footerNav.hidden = isOpen;
-  });
-});
-
-// Dark theme toggle
-const themeToggle = document.getElementById('themeToggle');
-const root = document.documentElement;
-
-function applyTheme(theme) {
-  if (theme === 'dark') {
-    root.setAttribute('data-theme', 'dark');
-    themeToggle.textContent = '☀️';
-    themeToggle.setAttribute('aria-pressed', 'true');
-  } else {
-    root.removeAttribute('data-theme');
-    themeToggle.textContent = '🌙';
-    themeToggle.setAttribute('aria-pressed', 'false');
+  if (loginForm) {
+    loginForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      console.log('Log in submitted — connect this to your backend.');
+    });
   }
-  localStorage.setItem('theme', theme);
-}
 
-applyTheme(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+  if (signupForm) {
+    signupForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      console.log('Sign up submitted — connect this to your backend.');
+    });
+  }
 
-themeToggle.addEventListener('click', () => {
-  const isDark = root.getAttribute('data-theme') === 'dark';
-  applyTheme(isDark ? 'light' : 'dark');
+  if (footerToggle && footerNav) {
+    footerToggle.addEventListener('click', () => {
+      const isOpen = footerToggle.getAttribute('aria-expanded') === 'true';
+      footerToggle.setAttribute('aria-expanded', String(!isOpen));
+      footerNav.hidden = isOpen;
+    });
+  }
+
+  if (themeToggle) {
+    const root = document.documentElement;
+
+    function applyTheme(theme) {
+      if (theme === 'dark') {
+        root.setAttribute('data-theme', 'dark');
+        themeToggle.textContent = '☀️';
+        themeToggle.setAttribute('aria-pressed', 'true');
+      } else {
+        root.removeAttribute('data-theme');
+        themeToggle.textContent = '🌙';
+        themeToggle.setAttribute('aria-pressed', 'false');
+      }
+      localStorage.setItem('theme', theme);
+    }
+
+    applyTheme(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+
+    themeToggle.addEventListener('click', () => {
+      const isDark = root.getAttribute('data-theme') === 'dark';
+      applyTheme(isDark ? 'light' : 'dark');
+    });
+  }
 });
