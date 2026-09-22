@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AloSwift</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <header class="site-header">
+        <div class="site-header__inner">
+            <a href="index.html" class="logo">AloSwift</a>
+
+            <div class="auth" id="auth">
+                <button class="auth__trigger auth__trigger--primary" onclick="window.location.href='index.html'">HOME</button>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <section class="auth-view" id="authView">
+            <div class="auth-card" id="signupPanel">
+                <h2 class="auth-card__title">Sign up</h2>
+                <form class="auth-form" id="signupForm">
+                    <label class="field">
+                        <span>Full name</span>
+                        <input type="text" name="name" autocomplete="name" required>
+                    </label>
+                    <label class="field">
+                        <span>Email</span>
+                        <input type="email" name="email" autocomplete="email" required>
+                    </label>
+                    <label class="field">
+                        <span>Password</span>
+                        <input type="password" name="password" autocomplete="new-password" required>
+                    </label>
+                    <button type="submit" class="field-submit">Create account</button>
+                </form>
+                <p class="auth-form__foot">
+                    Already have an account? <button type="button" class="link-btn" onclick="window.location.href='login.html'">Log in</button>
+                </p>
+                <p class="auth-form__foot">
+                    <a href="shop.html" class="link-btn">Continue browsing as a guest</a>
+                </p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <div class="site-footer__top">
+                <a href="index.html" class="logo logo--small">AloSwift</a>
+
+                <button class="footer-toggle" id="footerToggle" aria-expanded="false" aria-controls="footerNav">
+                    <span class="footer-toggle__bar"></span>
+                    <span class="footer-toggle__bar"></span>
+                    <span class="footer-toggle__bar"></span>
+                    <span class="sr-only">Menu</span>
+                </button>
+            </div>
+
+            <nav class="footer-nav" id="footerNav">
+                <a href="shop.html" class="nav-link">Shop</a>
+                <a href="about.html" class="nav-link">About</a>
+                <a href="contact.html" class="nav-link">Contact</a>
+            </nav>
+
+            <p class="footer-copy">&copy; 2026 AloSwift. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
