@@ -3,12 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <script>
-      (function () {
-      const saved = localStorage.getItem('theme');
-      const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-      })();
-</script>
+       (function () {
+       const saved = localStorage.getItem('theme');
+       const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+       if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+       })();
+    </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AloSwift</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -22,38 +22,18 @@
             <a href="index.html" class="logo">AloSwift</a>
 
             <div class="auth" id="auth">
-                <button class="auth__trigger auth__trigger--primary" onclick="window.location.href='index.html'">HOME</button>
+                <button class="auth__trigger" id="loginTrigger" aria-pressed="false">Log in</button>
+                <button class="auth__trigger auth__trigger--primary" id="signupTrigger" aria-pressed="false">Sign up</button>
                 <button class="theme-toggle" id="themeToggle" aria-pressed="false" aria-label="Toggle dark theme">🌙</button>
             </div>
         </div>
     </header>
 
     <main>
-        <section class="auth-view" id="authView">
-            <div class="auth-card" id="signupPanel">
-                <h2 class="auth-card__title">Sign up</h2>
-                <form class="auth-form" id="signupForm">
-                    <label class="field">
-                        <span>Full name</span>
-                        <input type="text" name="name" autocomplete="name" required>
-                    </label>
-                    <label class="field">
-                        <span>Email</span>
-                        <input type="email" name="email" autocomplete="email" required>
-                    </label>
-                    <label class="field">
-                        <span>Password</span>
-                        <input type="password" name="password" autocomplete="new-password" required>
-                    </label>
-                    <button type="submit" class="field-submit">Create account</button>
-                </form>
-                <p class="auth-form__foot">
-                    Already have an account? <button type="button" class="link-btn" onclick="window.location.href='login.html'">Log in</button>
-                </p>
-                <p class="auth-form__foot">
-                    <a href="shop.html" class="link-btn">Continue browsing as a guest</a>
-                </p>
-            </div>
+
+
+        <section class="auth-view" id="authView" hidden>
+
         </section>
     </main>
 
@@ -70,7 +50,7 @@
                 </button>
             </div>
 
-            <nav class="footer-nav" id="footerNav">
+            <nav class="footer-nav" id="footerNav" hidden>
                 <a href="shop.html" class="nav-link">Shop</a>
                 <a href="about.html" class="nav-link">About</a>
                 <a href="contact.html" class="nav-link">Contact</a>

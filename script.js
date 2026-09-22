@@ -60,3 +60,27 @@ document.addEventListener('DOMContentLoaded', () => {
     footerNav.hidden = isOpen;
   });
 });
+
+// Dark theme toggle
+const themeToggle = document.getElementById('themeToggle');
+const root = document.documentElement;
+
+function applyTheme(theme) {
+  if (theme === 'dark') {
+    root.setAttribute('data-theme', 'dark');
+    themeToggle.textContent = '☀️';
+    themeToggle.setAttribute('aria-pressed', 'true');
+  } else {
+    root.removeAttribute('data-theme');
+    themeToggle.textContent = '🌙';
+    themeToggle.setAttribute('aria-pressed', 'false');
+  }
+  localStorage.setItem('theme', theme);
+}
+
+applyTheme(root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light');
+
+themeToggle.addEventListener('click', () => {
+  const isDark = root.getAttribute('data-theme') === 'dark';
+  applyTheme(isDark ? 'light' : 'dark');
+});
