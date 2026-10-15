@@ -22,6 +22,7 @@ const allowedPages = new Set([
   'signup.html',
   'about.html',
   'contact.html',
+  'favicon.png',
   'script.js',
   'style.css',
   'contact.css',
@@ -496,7 +497,8 @@ async function createServer() {
       if (!allowedPages.has(filename)) throw new HttpError(404, 'Page not found.');
       const location = path.join(root, filename);
       const type = filename.endsWith('.html') ? 'text/html; charset=utf-8'
-        : filename.endsWith('.js') ? 'text/javascript; charset=utf-8' : 'text/css; charset=utf-8';
+        : filename.endsWith('.js') ? 'text/javascript; charset=utf-8'
+          : filename.endsWith('.png') ? 'image/png' : 'text/css; charset=utf-8';
       response.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'no-cache', 'X-Content-Type-Options': 'nosniff' });
       if (request.method === 'HEAD') response.end();
       else fs.createReadStream(location).pipe(response);
