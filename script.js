@@ -1,85 +1,18 @@
 const STORAGE_KEYS = {
-  accounts: 'aloswift_accounts',
-  session: 'aloswift_auth',
-  products: 'aloswift_products',
   cart: 'aloswift_cart',
-  orders: 'aloswift_orders',
 };
 
-const starterProducts = [
-  {
-    id: 'starter-linen-shirt',
-    name: 'The linen shirt',
-    description: 'An easy, breathable layer made for slow mornings and long afternoons.',
-    category: 'Clothing',
-    price: 680,
-    stock: 5,
-    seller: 'Atelier June',
-    image: 'https://images.unsplash.com/photo-1591047139829-d91aecb6caea?auto=format&fit=crop&w=900&q=85',
-    ownerId: '',
-  },
-  {
-    id: 'starter-market-tote',
-    name: 'Market day tote',
-    description: 'A generously sized everyday carryall in sturdy, natural cotton.',
-    category: 'Accessories',
-    price: 320,
-    stock: 8,
-    seller: 'Common Thread',
-    image: 'https://images.unsplash.com/photo-1590874103328-eac38a683ce7?auto=format&fit=crop&w=900&q=85',
-    ownerId: '',
-  },
-  {
-    id: 'starter-ceramic-vase',
-    name: 'Sculpted clay vase',
-    description: 'Hand-finished stoneware with a soft, organic silhouette.',
-    category: 'Home',
-    price: 540,
-    stock: 3,
-    seller: 'Earth & Form',
-    image: 'https://images.unsplash.com/photo-1578500494198-246f612d3b3d?auto=format&fit=crop&w=900&q=85',
-    ownerId: '',
-  },
-  {
-    id: 'starter-crossbody',
-    name: 'Daylight crossbody',
-    description: 'A compact, hands-free companion with room for all the essentials.',
-    category: 'Accessories',
-    price: 890,
-    stock: 4,
-    seller: 'Marlow Studio',
-    image: 'https://images.unsplash.com/photo-1584917865442-de89df76afd3?auto=format&fit=crop&w=900&q=85',
-    ownerId: '',
-  },
-  {
-    id: 'starter-knit',
-    name: 'Soft knit pullover',
-    description: 'A relaxed, beautifully textured knit for cooler evenings.',
-    category: 'Clothing',
-    price: 1120,
-    stock: 2,
-    seller: 'Atelier June',
-    image: 'https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=900&q=85',
-    ownerId: '',
-  },
-  {
-    id: 'starter-ceramic-cup',
-    name: 'Morning ritual cup',
-    description: 'A tactile, small-batch ceramic cup, finished by hand.',
-    category: 'Home',
-    price: 260,
-    stock: 7,
-    seller: 'Earth & Form',
-    image: 'https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?auto=format&fit=crop&w=900&q=85',
-    ownerId: '',
-  },
-];
+let stagedProductPhotos = [];
+let currentUser = null;
+let productsCache = [];
 
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   initFooterMenu();
   initThemeToggle();
   initAuthForms();
-  initShop();
+  await loadPublicProducts();
+  initLivingDisplay();
+  await initShop();
 });
 
 function readJson(key, fallback) {
@@ -102,6 +35,26 @@ function writeJson(key, value) {
     showToast('Your changes could not be saved. Check the available browser storage and try again.');
     throw error;
   }
+}
+
+async function apiRequest(url, options = {}) {
+  let response;
+  try {
+    response = await fetch(url, {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json', ...(options.body ? { 'Content-Type': 'application/json' } : {}) },
+      ...options,
+    });
+  } catch (error) {
+    throw new Error('AloSwift could not reach its server. Start it with npm start and open http://localhost:3000.');
+  }
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || `The request failed (${response.status}).`);
+  return result;
+}
+
+function requestJson(url, method, body) {
+  return apiRequest(url, { method, body: JSON.stringify(body) });
 }
 
 function showToast(message) {
@@ -144,6 +97,44 @@ function initThemeToggle() {
   });
 }
 
+function initLivingDisplay() {
+  const host = document.querySelector('.shop-hero, .hero, .contact');
+  if (!host) return;
+  const previous = host.querySelector('.living-display');
+  if (previous) previous.remove();
+  const cards = getProducts()
+    .flatMap(getProductImages)
+    .filter(image => safeImageUrl(image))
+    .slice(0, 8);
+  const fallbackIcons = ['bx-shopping-bag', 'bx-t-shirt', 'bx-home-heart', 'bx-watch', 'bx-cube', 'bx-palette', 'bx-leaf', 'bx-camera'];
+  const items = Array.from({ length: 8 }, (_, index) => {
+    const productImage = cards[index % Math.max(cards.length, 1)];
+    if (productImage) {
+      const image = safeImageUrl(productImage);
+      if (image) return `<span class="living-display__item"><img src="${escapeHtml(image)}" alt="" loading="lazy"></span>`;
+    }
+    return `<span class="living-display__item living-display__item--icon"><i class="bx ${fallbackIcons[index]}" aria-hidden="true"></i></span>`;
+  }).join('');
+  const display = document.createElement('div');
+  display.className = 'living-display';
+  display.setAttribute('aria-hidden', 'true');
+  display.innerHTML = `<div class="living-display__track living-display__track--forward">${items}${items}</div>
+    <div class="living-display__track living-display__track--reverse">${items}${items}</div>`;
+  host.prepend(display);
+}
+
+async function loadPublicProducts() {
+  try {
+    const catalog = await apiRequest('/api/products');
+    productsCache = catalog.products;
+  } catch (error) {
+    console.error('Public marketplace products could not be loaded.', error);
+    if (document.getElementById('productGrid')) {
+      showToast(error.message || 'The marketplace could not be loaded. Please try again.');
+    }
+  }
+}
+
 function showAuthFeedback(form, message, isError) {
   let feedback = form.querySelector('.auth-feedback');
   if (!feedback) {
@@ -154,20 +145,6 @@ function showAuthFeedback(form, message, isError) {
   }
   feedback.textContent = message;
   feedback.classList.toggle('auth-feedback--error', Boolean(isError));
-}
-
-async function hashPassword(password) {
-  if (!window.crypto || !window.crypto.subtle) {
-    throw new Error('Secure password hashing is unavailable in this browser context. Open the project on localhost to continue.');
-  }
-  const digest = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(password));
-  return Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
-}
-
-function createId() {
-  return window.crypto && typeof window.crypto.randomUUID === 'function'
-    ? window.crypto.randomUUID()
-    : `${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function initAuthForms() {
@@ -187,33 +164,19 @@ function initAuthForms() {
       event.preventDefault();
       const form = event.currentTarget;
       const values = new FormData(form);
-      const name = String(values.get('name') || '').trim();
-      const email = String(values.get('email') || '').trim().toLowerCase();
-      const password = String(values.get('password') || '');
-      const role = String(values.get('role') || 'customer');
       const submit = form.querySelector('[type="submit"]');
       submit.disabled = true;
 
       try {
-        const accounts = readJson(STORAGE_KEYS.accounts, []);
-        if (!Array.isArray(accounts)) throw new Error('Saved accounts are not in a valid format.');
-        if (accounts.some(account => account.email === email)) {
-          showAuthFeedback(form, 'An account with this email already exists. Please log in instead.', true);
-          return;
-        }
-        const account = {
-          id: createId(),
-          name,
-          email,
-          role: role === 'supplier' ? 'supplier' : 'customer',
-          passwordHash: await hashPassword(password),
-        };
-        accounts.push(account);
-        writeJson(STORAGE_KEYS.accounts, accounts);
-        activateAccount(account);
+        const account = await requestJson('/api/auth/signup', 'POST', {
+          name: String(values.get('name') || '').trim(),
+          email: String(values.get('email') || '').trim().toLowerCase(),
+          password: String(values.get('password') || ''),
+          role: String(values.get('role') || 'customer'),
+        });
+        activateAccount(account.user);
         window.location.href = 'shop.html';
       } catch (error) {
-        console.error('AloSwift account creation failed.', error);
         showAuthFeedback(form, error.message || 'Your account could not be created. Please try again.', true);
       } finally {
         submit.disabled = false;
@@ -226,23 +189,17 @@ function initAuthForms() {
       event.preventDefault();
       const form = event.currentTarget;
       const values = new FormData(form);
-      const email = String(values.get('email') || '').trim().toLowerCase();
-      const password = String(values.get('password') || '');
       const submit = form.querySelector('[type="submit"]');
       submit.disabled = true;
 
       try {
-        const accounts = readJson(STORAGE_KEYS.accounts, []);
-        if (!Array.isArray(accounts)) throw new Error('Saved accounts are not in a valid format.');
-        const account = accounts.find(candidate => candidate.email === email);
-        if (!account || account.passwordHash !== await hashPassword(password)) {
-          showAuthFeedback(form, 'Email or password is incorrect. Create an account first if you are new here.', true);
-          return;
-        }
-        activateAccount(account);
+        const result = await requestJson('/api/auth/login', 'POST', {
+          email: String(values.get('email') || '').trim().toLowerCase(),
+          password: String(values.get('password') || ''),
+        });
+        activateAccount(result.user);
         window.location.href = 'shop.html';
       } catch (error) {
-        console.error('AloSwift login failed.', error);
         showAuthFeedback(form, error.message || 'You could not be signed in. Please try again.', true);
       } finally {
         submit.disabled = false;
@@ -252,28 +209,323 @@ function initAuthForms() {
 }
 
 function activateAccount(account) {
-  writeJson(STORAGE_KEYS.session, {
-    id: account.id,
-    name: account.name,
-    email: account.email,
-    role: account.role,
-  });
+  currentUser = account || null;
 }
 
 function getCurrentUser() {
-  const user = readJson(STORAGE_KEYS.session, null);
-  if (!user || typeof user !== 'object' || typeof user.id !== 'string') return null;
-  return user;
+  return currentUser;
 }
 
-function initShop() {
+function getAccount(userId) {
+  if (currentUser && currentUser.id === userId) return currentUser;
+  const product = productsCache.find(item => item.ownerId === userId);
+  return product ? product.supplier : null;
+}
+
+function profileComplete(user) {
+  if (!user || !user.profile || !user.profile.avatar) return false;
+  const required = ['phone', 'town', 'city', 'region', 'country'];
+  if (required.some(key => !String(user.profile[key] || '').trim())) return false;
+  return user.role !== 'supplier' || Boolean(String(user.profile.businessName || '').trim());
+}
+
+function initProfile() {
+  const form = document.getElementById('profileForm');
+  const user = getCurrentUser();
+  if (!form || !user) return;
+  renderProfileForm();
+  if (!profileComplete(user)) openCustomerDashboard();
+}
+
+function renderProfileForm() {
+  const user = getCurrentUser();
+  if (!user) return;
+  const form = document.getElementById('profileForm');
+  const profile = user.profile || {};
+  form.elements.namedItem('name').value = user.name || '';
+  form.elements.namedItem('email').value = user.email || '';
+  for (const key of ['phone', 'town', 'city', 'region', 'country', 'businessName', 'businessId', 'bio']) {
+    form.elements.namedItem(key).value = profile[key] || '';
+  }
+  const supplier = user.role === 'supplier';
+  document.querySelectorAll('.profile-field--supplier').forEach(field => { field.hidden = !supplier; });
+  document.getElementById('profilePrivacyNote').textContent = supplier
+    ? 'Your supplier profile is visible to shoppers alongside your listings. Keep your contact and location details up to date.'
+    : 'Your profile stays private. Your name, contact details and town are shared with a supplier only when you choose to send an enquiry.';
+  const avatar = document.getElementById('profilePhotoPreview');
+  const placeholder = document.getElementById('profilePhotoPlaceholder');
+  avatar.hidden = !profile.avatar;
+  avatar.src = profile.avatar || '';
+  placeholder.hidden = Boolean(profile.avatar);
+  document.getElementById('accountProfileCard').innerHTML = profileCardMarkup(user);
+  document.getElementById('accountProfileCard').classList.toggle('profile-card--incomplete', !profileComplete(user));
+  document.getElementById('editProfileButton').hidden = false;
+}
+
+function profileCardMarkup(user) {
+  const profile = user.profile || {};
+  const name = user.name || user.email || 'AloSwift member';
+  const business = user.role === 'supplier' ? profile.businessName || 'Supplier profile' : 'Customer account';
+  const image = safeImageUrl(profile.avatar);
+  return `<div class="profile-card__avatar">${image ? `<img src="${escapeHtml(image)}" alt="">` : '<i class="bx bx-user" aria-hidden="true"></i>'}</div>
+    <p class="section-eyebrow">${user.role === 'supplier' ? 'SUPPLIER PROFILE' : 'CUSTOMER PROFILE'}</p>
+    <h3>${escapeHtml(business)}</h3>
+    <p class="profile-card__name">${escapeHtml(name)}</p>
+    <ul class="profile-card__details">
+      <li><i class="bx bx-envelope" aria-hidden="true"></i>${escapeHtml(user.email || '')}</li>
+      ${profile.phone ? `<li><i class="bx bx-phone" aria-hidden="true"></i>${escapeHtml(profile.phone)}</li>` : ''}
+      ${profile.town || profile.city ? `<li><i class="bx bx-map" aria-hidden="true"></i>${escapeHtml([profile.town, profile.city, profile.region, profile.country].filter(Boolean).join(', '))}</li>` : ''}
+      ${user.role === 'supplier' && profile.businessId ? `<li><i class="bx bx-badge-check" aria-hidden="true"></i>${escapeHtml(profile.businessId)}</li>` : ''}
+    </ul>
+    ${profile.bio ? `<p class="profile-card__bio">${escapeHtml(profile.bio)}</p>` : ''}
+    ${profileComplete(user) ? '' : '<p class="profile-card__incomplete">Complete the required details to contact sellers or publish products.</p>'}`;
+}
+
+async function saveProfile(event) {
+  event.preventDefault();
+  const user = getCurrentUser();
+  if (!user) {
+    showToast('Please sign in again before updating your profile.');
+    return;
+  }
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  const photoFile = document.getElementById('profilePhoto').files[0];
+  const profile = {
+    ...(user.profile || {}),
+    phone: String(values.get('phone') || '').trim(),
+    town: String(values.get('town') || '').trim(),
+    city: String(values.get('city') || '').trim(),
+    region: String(values.get('region') || '').trim(),
+    country: String(values.get('country') || '').trim(),
+    businessName: String(values.get('businessName') || '').trim(),
+    businessId: String(values.get('businessId') || '').trim(),
+    bio: String(values.get('bio') || '').trim(),
+  };
+  const name = String(values.get('name') || '').trim();
+  if (!name || Object.values(profile).slice(0, 5).some(value => !value)) {
+    showToast('Please complete your name, phone and full location before saving.');
+    return;
+  }
+  if (user.role === 'supplier' && !profile.businessName) {
+    showToast('Please add your public shop or business name.');
+    return;
+  }
+  if (!photoFile && !(user.profile && user.profile.avatar)) {
+    showToast('Choose a profile picture before saving your profile.');
+    return;
+  }
+  const submit = form.querySelector('[type="submit"]');
+  submit.disabled = true;
+  try {
+    profile.avatar = photoFile ? await compressImage(photoFile, 480) : user.profile.avatar;
+    const result = await requestJson('/api/profile', 'PUT', { name, profile });
+    activateAccount(result.user);
+    renderProfileForm();
+    renderHeader();
+    renderCatalog();
+    showToast('Your profile has been saved.');
+  } catch (error) {
+    showToast(error.message || 'Your profile could not be saved. Please try again.');
+  } finally {
+    submit.disabled = false;
+  }
+}
+
+function initPhotoDropzone(dropzoneId, inputId) {
+  const dropzone = document.getElementById(dropzoneId);
+  const input = document.getElementById(inputId);
+  if (!dropzone || !input) return;
+  dropzone.addEventListener('dragover', event => {
+    event.preventDefault();
+    dropzone.classList.add('photo-dropzone--active');
+  });
+  dropzone.addEventListener('dragleave', () => dropzone.classList.remove('photo-dropzone--active'));
+  dropzone.addEventListener('drop', event => {
+    event.preventDefault();
+    dropzone.classList.remove('photo-dropzone--active');
+    const files = Array.from(event.dataTransfer.files).filter(file => file.type.startsWith('image/'));
+    if (!files.length) {
+      showToast('Choose an image file to upload.');
+      return;
+    }
+    const transfer = new DataTransfer();
+    files.forEach(file => transfer.items.add(file));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+}
+
+function previewProfilePhoto(file) {
+  if (!file) return;
+  if (!file.type.startsWith('image/')) {
+    showToast('Choose an image file for your profile picture.');
+    return;
+  }
+  if (file.size > 8 * 1024 * 1024) {
+    showToast('Choose a profile picture smaller than 8 MB.');
+    return;
+  }
+  const preview = document.getElementById('profilePhotoPreview');
+  preview.src = URL.createObjectURL(file);
+  preview.hidden = false;
+  document.getElementById('profilePhotoPlaceholder').hidden = true;
+}
+
+function updateProductPhotoPreview() {
+  const input = document.getElementById('productPhotos');
+  if (!input) return;
+  const selected = Array.from(input.files || []);
+  if (selected.length) stagedProductPhotos = selected;
+  const previews = document.getElementById('productPhotoPreviews');
+  const label = document.getElementById('productPhotoLabel');
+  previews.innerHTML = '';
+  stagedProductPhotos.forEach(file => {
+    const image = document.createElement('img');
+    image.src = URL.createObjectURL(file);
+    image.alt = `${file.name} preview`;
+    previews.append(image);
+  });
+  label.textContent = stagedProductPhotos.length
+    ? `${stagedProductPhotos.length} ${stagedProductPhotos.length === 1 ? 'photo' : 'photos'} selected`
+    : 'Choose photos or drop them here';
+}
+
+function compressImage(file, maxDimension = 1200) {
+  if (!file.type.startsWith('image/')) return Promise.reject(new Error('Choose a valid image file.'));
+  if (file.size > 8 * 1024 * 1024) return Promise.reject(new Error('Choose images smaller than 8 MB each.'));
+  return createImageBitmap(file).then(bitmap => {
+    const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('This browser could not prepare the selected image.');
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return new Promise((resolve, reject) => {
+      canvas.toBlob(blob => {
+        if (!blob) {
+          reject(new Error('This image could not be processed. Please try another file.'));
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('This image could not be read.'));
+        reader.readAsDataURL(blob);
+      }, 'image/jpeg', 0.82);
+    });
+  }).catch(error => {
+    if (error instanceof Error && error.message) throw error;
+    throw new Error('This image could not be processed. Please try another file.');
+  });
+}
+
+function openPublicProfile(userId) {
+  const account = getAccount(userId);
+  if (!account || account.role !== 'supplier' || !profileComplete(account)) {
+    showToast('This supplier has not completed their public profile yet.');
+    return;
+  }
+  document.getElementById('publicProfileContent').innerHTML = profileCardMarkup(account);
+  document.getElementById('publicProfileContent').insertAdjacentHTML('beforeend', `
+    <div class="public-profile__contact">
+      <a href="mailto:${encodeURIComponent(account.email)}"><i class="bx bx-envelope" aria-hidden="true"></i> Email supplier</a>
+      <a href="tel:${escapeHtml(account.profile.phone.replace(/[^\d+]/g, ''))}"><i class="bx bx-phone" aria-hidden="true"></i> Call supplier</a>
+    </div>
+    <button class="field-submit" type="button" data-contact-profile="${escapeHtml(account.id)}">Send an enquiry</button>`);
+  document.getElementById('editProfileButton').hidden = true;
+  document.getElementById('profileDialog').showModal();
+}
+
+function openInquiry(productId) {
+  const user = getCurrentUser();
+  if (!user) {
+    window.location.href = 'login.html';
+    return;
+  }
+  if (!profileComplete(user)) {
+    showToast('Complete your profile and add a profile picture before contacting a supplier.');
+    openCustomerDashboard();
+    return;
+  }
+  const product = getProducts().find(item => item.id === productId);
+  const supplier = product && getAccount(product.ownerId);
+  if (!product || !supplier || supplier.role !== 'supplier' || !profileComplete(supplier)) {
+    showToast('This supplier is not ready to receive enquiries yet.');
+    return;
+  }
+  const form = document.getElementById('inquiryForm');
+  form.dataset.productId = product.id;
+  form.elements.namedItem('name').value = user.name;
+  form.elements.namedItem('email').value = user.email;
+  form.elements.namedItem('phone').value = user.profile.phone;
+  form.elements.namedItem('location').value = [user.profile.town, user.profile.city, user.profile.region, user.profile.country].filter(Boolean).join(', ');
+  form.elements.namedItem('message').value = '';
+  const avatar = safeImageUrl(supplier.profile.avatar);
+  document.getElementById('inquirySupplier').innerHTML = `
+    <div class="inquiry-supplier__avatar">${avatar ? `<img src="${escapeHtml(avatar)}" alt="">` : ''}</div>
+    <div><strong>${escapeHtml(supplier.profile.businessName)}</strong><span>${escapeHtml(supplier.name)}</span>
+      <span>${escapeHtml([supplier.profile.town, supplier.profile.city, supplier.profile.region].filter(Boolean).join(', '))}</span>
+      <span>${escapeHtml(product.name)} · ${formatPrice(product.price)}</span></div>`;
+  document.getElementById('inquiryDialog').showModal();
+}
+
+function sendSupplierInquiry(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const product = getProducts().find(item => item.id === form.dataset.productId);
+  const supplier = product && getAccount(product.ownerId);
+  const user = getCurrentUser();
+  if (!product || !supplier || !user || !profileComplete(user) || !profileComplete(supplier)) {
+    showToast('The product or contact details are no longer available.');
+    return;
+  }
+  const message = String(new FormData(form).get('message') || '').trim();
+  const subject = `Enquiry about ${product.name} on AloSwift`;
+  const body = [
+    `Hello ${supplier.profile.businessName},`,
+    '',
+    message,
+    '',
+    `Item: ${product.name}`,
+    `Listed price: ${formatPrice(product.price)}`,
+    '',
+    'Customer contact details:',
+    `Name: ${user.name}`,
+    `Email: ${user.email}`,
+    `Phone / WhatsApp: ${user.profile.phone}`,
+    `Location: ${[user.profile.town, user.profile.city, user.profile.region, user.profile.country].filter(Boolean).join(', ')}`,
+    '',
+    'Please reply directly so we can agree how to complete the exchange.',
+  ].join('\n');
+  window.location.href = `mailto:${encodeURIComponent(supplier.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  document.getElementById('inquiryDialog').close();
+  showToast('Your email app is opening with the enquiry details.');
+}
+
+async function initShop() {
   const grid = document.getElementById('productGrid');
   if (!grid) return;
 
-  if (localStorage.getItem(STORAGE_KEYS.products) === null) {
-    writeJson(STORAGE_KEYS.products, starterProducts);
+  try {
+    const session = await apiRequest('/api/session');
+    activateAccount(session.user);
+    if (currentUser && currentUser.role === 'supplier') {
+      const managed = await apiRequest('/api/supplier/products');
+      const byId = new Map(productsCache.map(product => [product.id, product]));
+      managed.products.forEach(product => {
+        if (!byId.has(product.id)) byId.set(product.id, { ...product, supplier: currentUser });
+      });
+      productsCache = [...byId.values()];
+    }
+  } catch (error) {
+    console.error('Marketplace data could not be loaded.', error);
+    showToast(error.message || 'The marketplace could not be loaded. Please try again.');
   }
+  initLivingDisplay();
   renderHeader();
+  initProfile();
   renderCatalog();
   renderCart();
 
@@ -289,8 +541,13 @@ function initShop() {
   grid.addEventListener('click', event => {
     const button = event.target.closest('[data-add-to-cart]');
     if (button) addToCart(button.dataset.addToCart);
+    const contactButton = event.target.closest('[data-contact-seller]');
+    if (contactButton) openInquiry(contactButton.dataset.contactSeller);
+    const sellerButton = event.target.closest('[data-view-seller]');
+    if (sellerButton) openPublicProfile(sellerButton.dataset.viewSeller);
   });
 
+  document.getElementById('profileTrigger').addEventListener('click', openCustomerDashboard);
   document.getElementById('listingTrigger').addEventListener('click', () => {
     const user = getCurrentUser();
     if (user && user.role === 'supplier') openSupplierDashboard();
@@ -304,18 +561,29 @@ function initShop() {
     else openCustomerDashboard();
   });
   document.getElementById('backToShopFromAccount').addEventListener('click', closeSupplierDashboard);
-  document.getElementById('shopFromAccount').addEventListener('click', closeSupplierDashboard);
-  document.getElementById('upgradeToSupplier').addEventListener('click', upgradeToSupplier);
-  document.getElementById('supplierOrders').addEventListener('click', openCustomerDashboard);
   document.getElementById('backToShop').addEventListener('click', closeSupplierDashboard);
   document.getElementById('productForm').addEventListener('submit', saveProduct);
   document.getElementById('cancelEdit').addEventListener('click', resetProductForm);
   document.getElementById('sellerProducts').addEventListener('click', handleSellerProductAction);
-  document.getElementById('logoutTrigger').addEventListener('click', () => {
-    localStorage.removeItem(STORAGE_KEYS.session);
-    closeSupplierDashboard();
-    renderHeader();
-    showToast('You have signed out.');
+  document.getElementById('profileForm').addEventListener('submit', saveProfile);
+  document.getElementById('editProfileButton').addEventListener('click', () => {
+    document.getElementById('profileDialog').close();
+    openCustomerDashboard();
+  });
+  document.getElementById('profilePhoto').addEventListener('change', event => previewProfilePhoto(event.target.files[0]));
+  initPhotoDropzone('profileDropzone', 'profilePhoto');
+  document.getElementById('productPhotos').addEventListener('change', updateProductPhotoPreview);
+  initPhotoDropzone('productDropzone', 'productPhotos');
+  document.getElementById('logoutTrigger').addEventListener('click', async () => {
+    try {
+      await apiRequest('/api/auth/logout', { method: 'POST' });
+      activateAccount(null);
+      closeSupplierDashboard();
+      renderHeader();
+      showToast('You have signed out.');
+    } catch (error) {
+      showToast(error.message || 'You could not be signed out. Please try again.');
+    }
   });
 
   document.getElementById('cartTrigger').addEventListener('click', () => document.getElementById('cartDialog').showModal());
@@ -323,17 +591,30 @@ function initShop() {
   document.getElementById('cartDialog').addEventListener('click', event => {
     if (event.target === event.currentTarget) event.currentTarget.close();
   });
-  document.getElementById('cartItems').addEventListener('click', handleCartAction);
-  document.getElementById('checkoutButton').addEventListener('click', placeOrder);
+  document.getElementById('cartItems').addEventListener('click', event => {
+    handleCartAction(event);
+    const contactButton = event.target.closest('[data-contact-seller]');
+    if (contactButton) {
+      document.getElementById('cartDialog').close();
+      openInquiry(contactButton.dataset.contactSeller);
+    }
+  });
+  document.getElementById('closeInquiry').addEventListener('click', () => document.getElementById('inquiryDialog').close());
+  document.getElementById('inquiryForm').addEventListener('submit', sendSupplierInquiry);
+  document.getElementById('publicProfileContent').addEventListener('click', event => {
+    const button = event.target.closest('[data-contact-profile]');
+    if (button) {
+      document.getElementById('profileDialog').close();
+      openInquiry(button.dataset.contactProfile);
+    }
+  });
+  document.getElementById('inquiryDialog').addEventListener('click', event => {
+    if (event.target === event.currentTarget) event.currentTarget.close();
+  });
 }
 
 function getProducts() {
-  const products = readJson(STORAGE_KEYS.products, starterProducts);
-  return Array.isArray(products) ? products.filter(product => product && typeof product.id === 'string') : [];
-}
-
-function saveProducts(products) {
-  writeJson(STORAGE_KEYS.products, products);
+  return productsCache;
 }
 
 function formatPrice(price) {
@@ -351,6 +632,8 @@ function escapeHtml(value) {
 }
 
 function safeImageUrl(value) {
+  if (typeof value === 'string' && /^\/uploads\/[a-f0-9-]+\.(?:jpg|png|webp)$/i.test(value)) return value;
+  if (typeof value === 'string' && /^data:image\/(?:jpeg|png|webp);base64,[a-z0-9+/]+=*$/i.test(value)) return value;
   try {
     const url = new URL(value);
     return url.protocol === 'https:' ? url.href : '';
@@ -378,22 +661,27 @@ function renderCatalog() {
   document.getElementById('catalogEmpty').hidden = products.length !== 0;
   grid.hidden = products.length === 0;
   grid.innerHTML = products.map(product => {
-    const image = safeImageUrl(product.image);
+    const images = getProductImages(product).map(safeImageUrl).filter(Boolean);
+    const image = images[0] || '';
     const stock = Number(product.stock) || 0;
+    const seller = getAccount(product.ownerId);
+    const sellerName = seller && seller.profile ? seller.profile.businessName : product.seller || 'Independent seller';
     return `<article class="product-card">
       <div class="product-card__image">${image
         ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" loading="lazy">`
         : '<span class="product-placeholder"><i class="bx bx-image" aria-hidden="true"></i></span>'}
+        ${images.length > 1 ? `<div class="product-gallery-controls"><button type="button" data-gallery-step="-1" data-product-id="${escapeHtml(product.id)}" aria-label="Previous photo">‹</button><span data-gallery-count>1 / ${images.length}</span><button type="button" data-gallery-step="1" data-product-id="${escapeHtml(product.id)}" aria-label="Next photo">›</button></div>` : ''}
         <span class="product-card__category">${escapeHtml(product.category)}</span>
       </div>
       <div class="product-card__body">
-        <div class="product-card__meta"><p class="product-card__seller">${escapeHtml(product.seller || 'AloSwift seller')}</p><span>${stock ? `${stock} available` : 'Sold out'}</span></div>
+        <div class="product-card__meta"><button type="button" class="product-card__seller" data-view-seller="${escapeHtml(product.ownerId)}">${escapeHtml(sellerName)}</button><span>${stock ? `${stock} available` : 'Sold out'}</span></div>
         <h3 class="product-card__name">${escapeHtml(product.name)}</h3>
         <p class="product-card__desc">${escapeHtml(product.description)}</p>
         <div class="product-card__footer"><strong class="product-card__price">${formatPrice(product.price)}</strong>
-          <button type="button" class="product-add" data-add-to-cart="${escapeHtml(product.id)}" ${stock ? '' : 'disabled'} aria-label="Add ${escapeHtml(product.name)} to bag">
-            <i class="bx bx-plus" aria-hidden="true"></i><span>${stock ? 'Add to bag' : 'Sold out'}</span>
-          </button>
+          <div class="product-card__actions">
+            <button type="button" class="product-add" data-add-to-cart="${escapeHtml(product.id)}" ${stock ? '' : 'disabled'} aria-label="Add ${escapeHtml(product.name)} to bag"><i class="bx bx-shopping-bag" aria-hidden="true"></i><span>Save</span></button>
+            <button type="button" class="product-contact" data-contact-seller="${escapeHtml(product.id)}" ${stock ? '' : 'disabled'}><i class="bx bx-message-rounded-dots" aria-hidden="true"></i><span>Ask supplier</span></button>
+          </div>
         </div>
       </div>
     </article>`;
@@ -408,17 +696,25 @@ function renderCatalog() {
   });
 }
 
+function getProductImages(product) {
+  const images = Array.isArray(product.images) ? product.images : [];
+  return images.length ? images : product.image ? [product.image] : [];
+}
+
 function renderHeader() {
   const user = getCurrentUser();
   document.getElementById('authSignedOut').hidden = Boolean(user);
   document.getElementById('authSignedIn').hidden = !user;
   const name = document.getElementById('accountName');
   const listingTrigger = document.getElementById('listingTrigger');
-  const cta = document.getElementById('supplierCta');
   if (user) {
-    name.textContent = user.name || user.email;
+    name.textContent = user.name || 'My profile';
+    const avatar = document.getElementById('headerAvatar');
+    const image = safeImageUrl(user.profile && user.profile.avatar);
+    avatar.hidden = !image;
+    avatar.src = image;
+    document.getElementById('headerAvatarPlaceholder').hidden = Boolean(image);
     listingTrigger.textContent = user.role === 'supplier' ? 'My shop' : 'My account';
-    cta.textContent = user.role === 'supplier' ? 'Open supplier studio' : 'Open a supplier shop';
   }
 }
 
@@ -461,20 +757,22 @@ function renderCart() {
     product: products.find(product => product.id === item.productId),
   })).filter(item => item.product);
   const count = resolvedItems.reduce((sum, item) => sum + item.quantity, 0);
-  const subtotal = resolvedItems.reduce((sum, item) => sum + Number(item.product.price) * item.quantity, 0);
   document.getElementById('cartCount').textContent = String(count);
   document.getElementById('cartHeadingCount').textContent = count ? `(${count})` : '';
   document.getElementById('cartItems').innerHTML = resolvedItems.map(item => {
-    const image = safeImageUrl(item.product.image);
+    const image = safeImageUrl(getProductImages(item.product)[0]);
+    const supplier = getAccount(item.product.ownerId);
+    const canContact = supplier && profileComplete(supplier);
     return `<article class="cart-item">
       <div class="cart-item__image">${image ? `<img src="${escapeHtml(image)}" alt="">` : '<i class="bx bx-image" aria-hidden="true"></i>'}</div>
-      <div class="cart-item__details"><h3>${escapeHtml(item.product.name)}</h3><p>${escapeHtml(item.product.seller || 'AloSwift seller')}</p>
+      <div class="cart-item__details"><h3>${escapeHtml(item.product.name)}</h3><p>${escapeHtml(supplier && supplier.profile.businessName || item.product.seller || 'Independent seller')}</p>
         <strong>${formatPrice(item.product.price)}</strong>
         <div class="quantity-control" aria-label="Quantity for ${escapeHtml(item.product.name)}">
           <button type="button" data-cart-action="decrease" data-product-id="${escapeHtml(item.product.id)}" aria-label="Decrease quantity">−</button>
           <span>${item.quantity}</span>
           <button type="button" data-cart-action="increase" data-product-id="${escapeHtml(item.product.id)}" aria-label="Increase quantity">+</button>
         </div>
+        <button type="button" class="text-button cart-item__contact" data-contact-seller="${escapeHtml(item.product.id)}" ${canContact ? '' : 'disabled'}>Ask this supplier</button>
       </div>
       <button class="cart-remove" type="button" data-cart-action="remove" data-product-id="${escapeHtml(item.product.id)}" aria-label="Remove ${escapeHtml(item.product.name)}"><i class="bx bx-trash" aria-hidden="true"></i></button>
     </article>`;
@@ -482,7 +780,6 @@ function renderCart() {
   const isEmpty = resolvedItems.length === 0;
   document.getElementById('cartEmpty').hidden = !isEmpty;
   document.getElementById('cartSummary').hidden = isEmpty;
-  document.getElementById('cartSubtotal').textContent = formatPrice(subtotal);
 }
 
 function handleCartAction(event) {
@@ -509,55 +806,15 @@ function handleCartAction(event) {
   renderCart();
 }
 
-function placeOrder() {
-  const items = getCartItems();
-  if (items.length === 0) return;
-  const products = getProducts();
-  const unavailable = items.find(item => {
-    const product = products.find(entry => entry.id === item.productId);
-    return !product || Number(product.stock) < item.quantity;
-  });
-  if (unavailable) {
-    showToast('A product in your bag no longer has enough stock. Please update your quantities.');
-    renderCart();
-    return;
-  }
-  const orderItems = items.map(item => {
-    const product = products.find(entry => entry.id === item.productId);
-    product.stock = Number(product.stock) - item.quantity;
-    return {
-      productId: product.id,
-      name: product.name,
-      price: Number(product.price),
-      quantity: item.quantity,
-      seller: product.seller,
-    };
-  });
-  const orders = readJson(STORAGE_KEYS.orders, []);
-  if (!Array.isArray(orders)) throw new Error('Saved orders are not in a valid format.');
-  orders.unshift({
-    id: createId(),
-    userId: getCurrentUser() ? getCurrentUser().id : null,
-    items: orderItems,
-    total: orderItems.reduce((total, item) => total + item.price * item.quantity, 0),
-    createdAt: new Date().toISOString(),
-    status: 'Placed',
-  });
-  saveProducts(products);
-  writeJson(STORAGE_KEYS.orders, orders);
-  writeJson(STORAGE_KEYS.cart, []);
-  renderCart();
-  renderCatalog();
-  if (!document.getElementById('supplierDashboard').hidden) renderSellerProducts();
-  if (!document.getElementById('customerDashboard').hidden) renderCustomerOrders();
-  document.getElementById('cartDialog').close();
-  showToast('Demo order placed. No payment was taken.');
-}
-
 function openSupplierDashboard() {
   const user = getCurrentUser();
   if (!user) {
     window.location.href = 'login.html';
+    return;
+  }
+  if (!profileComplete(user)) {
+    showToast('Complete your profile before publishing products.');
+    openCustomerDashboard();
     return;
   }
   if (user.role !== 'supplier') {
@@ -581,11 +838,10 @@ function openCustomerDashboard() {
   }
   document.getElementById('supplierDashboard').hidden = true;
   document.getElementById('customerDashboard').hidden = false;
-  document.getElementById('accountSupplierCallout').hidden = user.role === 'supplier';
   document.getElementById('catalog').hidden = true;
   document.querySelector('.shop-hero').hidden = true;
   document.querySelector('.supplier-callout').hidden = true;
-  renderCustomerOrders();
+  renderProfileForm();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -594,56 +850,10 @@ function closeSupplierDashboard() {
   if (!dashboard) return;
   dashboard.hidden = true;
   document.getElementById('customerDashboard').hidden = true;
-  document.getElementById('accountSupplierCallout').hidden = false;
   document.getElementById('catalog').hidden = false;
   document.querySelector('.shop-hero').hidden = false;
   document.querySelector('.supplier-callout').hidden = false;
   resetProductForm();
-}
-
-function renderCustomerOrders() {
-  const user = getCurrentUser();
-  if (!user) return;
-  const orders = readJson(STORAGE_KEYS.orders, []);
-  const customerOrders = Array.isArray(orders) ? orders.filter(order => order.userId === user.id) : [];
-  document.getElementById('customerOrdersEmpty').hidden = customerOrders.length !== 0;
-  document.getElementById('customerOrders').innerHTML = customerOrders.map(order => {
-    const date = new Date(order.createdAt).toLocaleDateString('en-NA', { year: 'numeric', month: 'long', day: 'numeric' });
-    const lines = order.items.map(item => `<li><span>${escapeHtml(item.name)} <span class="order-quantity">× ${Number(item.quantity)}</span></span><strong>${formatPrice(Number(item.price) * Number(item.quantity))}</strong></li>`).join('');
-    return `<article class="order-card">
-      <div class="order-card__heading"><div><span>Order ${escapeHtml(order.id.slice(0, 8))}</span><p>${escapeHtml(date)}</p></div><span class="order-status">${escapeHtml(order.status || 'Placed')}</span></div>
-      <ul>${lines}</ul><div class="order-card__total"><span>Total</span><strong>${formatPrice(order.total)}</strong></div>
-      <p class="order-card__note">Demo order only · Payment and delivery have not been arranged.</p>
-    </article>`;
-  }).join('');
-}
-
-function upgradeToSupplier() {
-  const user = getCurrentUser();
-  if (!user || user.role === 'supplier') {
-    if (user) openSupplierDashboard();
-    return;
-  }
-  const accounts = readJson(STORAGE_KEYS.accounts, []);
-  if (!Array.isArray(accounts)) {
-    showToast('Your account could not be updated.');
-    return;
-  }
-  const account = accounts.find(candidate => candidate.id === user.id);
-  if (!account) {
-    showToast('Your account could not be found. Please sign in again.');
-    return;
-  }
-  account.role = 'supplier';
-  try {
-    writeJson(STORAGE_KEYS.accounts, accounts);
-    activateAccount(account);
-    renderHeader();
-    openSupplierDashboard();
-    showToast('Supplier studio unlocked. Start by adding your first product.');
-  } catch {
-    // writeJson reports storage errors to the shopper.
-  }
 }
 
 function renderSellerProducts() {
@@ -653,7 +863,7 @@ function renderSellerProducts() {
   document.getElementById('listingCount').textContent = `${products.length} ${products.length === 1 ? 'product' : 'products'}`;
   document.getElementById('sellerEmpty').hidden = products.length !== 0;
   document.getElementById('sellerProducts').innerHTML = products.map(product => {
-    const image = safeImageUrl(product.image);
+    const image = safeImageUrl(getProductImages(product)[0]);
     return `<article class="seller-product">
       <div class="seller-product__image">${image ? `<img src="${escapeHtml(image)}" alt="">` : '<i class="bx bx-image" aria-hidden="true"></i>'}</div>
       <div class="seller-product__details"><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.category)} · ${Number(product.stock)} in stock</p><strong>${formatPrice(product.price)}</strong></div>
@@ -662,11 +872,16 @@ function renderSellerProducts() {
   }).join('');
 }
 
-function saveProduct(event) {
+async function saveProduct(event) {
   event.preventDefault();
   const user = getCurrentUser();
   if (!user || user.role !== 'supplier') {
     showToast('A supplier account is required to manage products.');
+    return;
+  }
+  if (!profileComplete(user)) {
+    showToast('Complete your public supplier profile before publishing products.');
+    openCustomerDashboard();
     return;
   }
   const form = event.currentTarget;
@@ -676,10 +891,8 @@ function saveProduct(event) {
   const price = Number(values.get('price'));
   const stock = Number(values.get('stock'));
   const category = String(values.get('category'));
-  const rawImage = String(values.get('image') || '').trim();
-  const image = rawImage ? safeImageUrl(rawImage) : '';
-  if (rawImage && !image) {
-    showToast('Product images must use a valid HTTPS link.');
+  if (!name || !description || !Number.isFinite(price) || price <= 0 || !Number.isInteger(stock) || stock < 0) {
+    showToast('Add a name, description, valid price and whole-number stock amount.');
     return;
   }
   const products = getProducts();
@@ -691,32 +904,42 @@ function saveProduct(event) {
     return;
   }
   const product = {
-    ...(existing || {}),
-    id: existing ? existing.id : createId(),
     name,
     description,
     price,
     stock,
     category,
-    image,
-    seller: user.name || 'Independent seller',
-    ownerId: user.id,
   };
-  const nextProducts = existing
-    ? products.map(item => item.id === editId ? product : item)
-    : [product, ...products];
+  const submit = form.querySelector('[type="submit"]');
+  submit.disabled = true;
   try {
-    saveProducts(nextProducts);
+    if (stagedProductPhotos.length > 5) throw new Error('Choose up to five photos per listing.');
+    const images = stagedProductPhotos.length
+      ? await Promise.all(stagedProductPhotos.map(file => compressImage(file)))
+      : getProductImages(existing || {});
+    product.images = images;
+    product.image = images[0] || '';
+    const result = await requestJson(
+      existing ? `/api/products/${encodeURIComponent(editId)}` : '/api/products',
+      existing ? 'PUT' : 'POST',
+      { ...product, images },
+    );
+    productsCache = existing
+      ? products.map(item => item.id === editId ? result.product : item)
+      : [result.product, ...products];
     resetProductForm();
     renderSellerProducts();
     renderCatalog();
+    initLivingDisplay();
     showToast(existing ? 'Your listing has been updated.' : 'Your product is now listed.');
-  } catch {
-    // writeJson reports storage errors to the shopper.
+  } catch (error) {
+    showToast(error.message || 'Your listing could not be saved. Please try again.');
+  } finally {
+    submit.disabled = false;
   }
 }
 
-function handleSellerProductAction(event) {
+async function handleSellerProductAction(event) {
   const button = event.target.closest('[data-seller-action]');
   if (!button) return;
   const user = getCurrentUser();
@@ -734,7 +957,9 @@ function handleSellerProductAction(event) {
     form.elements.namedItem('price').value = product.price;
     form.elements.namedItem('stock').value = product.stock;
     form.elements.namedItem('category').value = product.category;
-    form.elements.namedItem('image').value = product.image || '';
+    stagedProductPhotos = [];
+    document.getElementById('productPhotos').value = '';
+    updateProductPhotoPreview();
     form.dataset.editId = product.id;
     document.getElementById('productFormTitle').textContent = 'Edit product';
     document.getElementById('productSubmit').textContent = 'Save changes';
@@ -744,15 +969,17 @@ function handleSellerProductAction(event) {
   }
   if (button.dataset.sellerAction === 'delete' && window.confirm(`Remove “${product.name}” from your shop?`)) {
     try {
-      saveProducts(products.filter(item => item.id !== product.id));
+      await apiRequest(`/api/products/${encodeURIComponent(product.id)}`, { method: 'DELETE' });
+      productsCache = products.filter(item => item.id !== product.id);
       writeJson(STORAGE_KEYS.cart, getCartItems().filter(item => item.productId !== product.id));
       resetProductForm();
       renderSellerProducts();
       renderCatalog();
       renderCart();
+      initLivingDisplay();
       showToast('Your product has been removed.');
-    } catch {
-      // writeJson reports storage errors to the shopper.
+    } catch (error) {
+      showToast(error.message || 'Your product could not be removed. Please try again.');
     }
   }
 }
@@ -761,6 +988,9 @@ function resetProductForm() {
   const form = document.getElementById('productForm');
   if (!form) return;
   form.reset();
+  stagedProductPhotos = [];
+  document.getElementById('productPhotoPreviews').innerHTML = '';
+  document.getElementById('productPhotoLabel').textContent = 'Choose photos or drop them here';
   delete form.dataset.editId;
   document.getElementById('productFormTitle').textContent = 'Add a product';
   document.getElementById('productSubmit').textContent = 'Add product';

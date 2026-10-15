@@ -13,7 +13,6 @@
     <meta name="description" content="Discover independent sellers and shop thoughtfully selected finds at AloSwift.">
     <title>Shop | AloSwift</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://images.unsplash.com">
     <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/boxicons/2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -33,7 +32,11 @@
                     <a class="auth__trigger auth__trigger--primary" href="signup.html">Join AloSwift</a>
                 </div>
                 <div class="auth nav-account" id="authSignedIn" hidden>
-                    <span class="nav-account__name"><i class="bx bx-user-circle" aria-hidden="true"></i><span id="accountName">Account</span></span>
+                    <button class="nav-account__name profile-trigger" id="profileTrigger" type="button" aria-label="Open your profile">
+                        <img class="profile-trigger__avatar" id="headerAvatar" alt="">
+                        <i class="bx bx-user-circle profile-trigger__icon" id="headerAvatarPlaceholder" aria-hidden="true"></i>
+                        <span class="profile-trigger__label" id="accountName">My profile</span>
+                    </button>
                     <button class="auth__trigger" id="listingTrigger" type="button">My shop</button>
                     <button class="auth__trigger" id="logoutTrigger" type="button">Sign out</button>
                 </div>
@@ -108,19 +111,35 @@
             <div class="dashboard-heading">
                 <div>
                     <p class="section-eyebrow">YOUR ALOSWIFT ACCOUNT</p>
-                    <h2 id="customerDashboardTitle">Your orders</h2>
-                    <p class="dashboard-subtitle">A little home for the things you have brought home.</p>
+                    <h2 id="customerDashboardTitle">Your profile</h2>
+                    <p class="dashboard-subtitle">Manage the details you choose to share with a seller.</p>
                 </div>
                 <button class="text-button" id="backToShopFromAccount" type="button"><i class="bx bx-arrow-back" aria-hidden="true"></i> Back to shop</button>
             </div>
-            <div id="customerOrders" class="customer-orders"></div>
-            <div class="customer-empty" id="customerOrdersEmpty" hidden>
-                <i class="bx bx-package" aria-hidden="true"></i><h3>Your story starts here</h3><p>Your demo orders will appear here after checkout.</p>
-                <button class="text-button" id="shopFromAccount" type="button">Explore the collection</button>
-            </div>
-            <div class="supplier-callout supplier-callout--account" id="accountSupplierCallout">
-                <div><p class="section-eyebrow">HAVE SOMETHING TO SHARE?</p><h2>Open your own shop.</h2><p>Turn your customer account into a supplier account and start listing your products.</p></div>
-                <button class="hero__cta" id="upgradeToSupplier" type="button">Start selling <i class="bx bx-right-arrow-alt" aria-hidden="true"></i></button>
+            <div class="profile-layout">
+                <div class="profile-card" id="accountProfileCard"></div>
+                <form class="profile-form" id="profileForm">
+                    <h3>Personal details</h3>
+                    <p class="profile-form__intro" id="profilePrivacyNote"></p>
+                    <label class="avatar-dropzone" id="profileDropzone" for="profilePhoto">
+                        <img id="profilePhotoPreview" alt="Profile picture preview" hidden>
+                        <span class="avatar-dropzone__placeholder" id="profilePhotoPlaceholder"><i class="bx bx-camera" aria-hidden="true"></i><strong>Add a profile picture</strong><small>Choose a photo or drop it here</small></span>
+                        <input id="profilePhoto" name="profilePhoto" type="file" accept="image/*" hidden>
+                    </label>
+                    <div class="profile-fields">
+                        <label class="field"><span>Full name</span><input name="name" maxlength="80" autocomplete="name" required></label>
+                        <label class="field"><span>Email</span><input name="email" type="email" autocomplete="email" readonly></label>
+                        <label class="field"><span>Phone or WhatsApp</span><input name="phone" type="tel" maxlength="30" autocomplete="tel" required placeholder="+264 …"></label>
+                        <label class="field"><span>Town / suburb</span><input name="town" maxlength="80" autocomplete="address-level3" required></label>
+                        <label class="field"><span>City</span><input name="city" maxlength="80" autocomplete="address-level2" required></label>
+                        <label class="field"><span>Region</span><input name="region" maxlength="80" autocomplete="address-level1" required></label>
+                        <label class="field"><span>Country</span><input name="country" maxlength="80" autocomplete="country-name" required></label>
+                        <label class="field profile-field--supplier" id="businessNameField"><span>Business / shop name</span><input name="businessName" maxlength="100" placeholder="Your public shop name"></label>
+                        <label class="field profile-field--supplier" id="businessIdField"><span>Business registration (optional)</span><input name="businessId" maxlength="80" placeholder="Registration number"></label>
+                        <label class="field profile-field--supplier" id="bioField"><span>About your shop</span><textarea name="bio" rows="3" maxlength="280" placeholder="What do you sell and what should buyers know?"></textarea></label>
+                    </div>
+                    <button class="field-submit" type="submit">Save profile</button>
+                </form>
             </div>
         </section>
 
@@ -132,7 +151,6 @@
                     <p class="dashboard-subtitle">Manage your products and keep your shop up to date.</p>
                 </div>
                 <div class="dashboard-actions">
-                    <button class="text-button" id="supplierOrders" type="button">My orders</button>
                     <button class="text-button" id="backToShop" type="button"><i class="bx bx-arrow-back" aria-hidden="true"></i> Back to shop</button>
                 </div>
             </div>
@@ -146,7 +164,16 @@
                         <label class="field"><span>Available stock</span><input name="stock" type="number" min="0" step="1" required placeholder="1"></label>
                     </div>
                     <label class="field"><span>Category</span><select name="category" required><option value="Clothing">Clothing</option><option value="Accessories">Accessories</option><option value="Home">Home & living</option></select></label>
-                    <label class="field"><span>Image URL <span class="field__optional">(optional)</span></span><input name="image" type="url" placeholder="https://…"></label>
+                    <div class="field">
+                        <span>Product pictures <span class="field__optional">(optional)</span></span>
+                        <label class="photo-dropzone" id="productDropzone" for="productPhotos">
+                            <i class="bx bx-cloud-upload" aria-hidden="true"></i>
+                            <span id="productPhotoLabel">Choose photos or drop them here</span>
+                            <small>JPG, PNG or WebP · up to 8 MB each</small>
+                            <input id="productPhotos" name="productPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+                        </label>
+                        <div class="photo-preview-grid" id="productPhotoPreviews"></div>
+                    </div>
                     <div class="product-form__actions">
                         <button class="field-submit" id="productSubmit" type="submit">Add product</button>
                         <button class="text-button" id="cancelEdit" type="button" hidden>Cancel edit</button>
@@ -159,7 +186,6 @@
                 </div>
             </div>
         </section>
-        <p class="prototype-note"><i class="bx bx-info-circle" aria-hidden="true"></i> AloSwift is a local demo. Accounts, listings and orders are stored in this browser; payments and seller verification are not connected.</p>
     </main>
 
     <dialog class="cart-dialog" id="cartDialog" aria-labelledby="cartTitle">
@@ -173,10 +199,35 @@
                 <i class="bx bx-shopping-bag" aria-hidden="true"></i><h3>Your bag is waiting</h3><p>When something catches your eye, add it here.</p>
             </div>
             <div class="cart-summary" id="cartSummary">
-                <div><span>Subtotal</span><strong id="cartSubtotal">N$0.00</strong></div>
-                <p>Delivery is arranged directly with the supplier.</p>
-                <button class="field-submit" id="checkoutButton" type="button">Place demo order</button>
+                <p>Choose an item to contact its supplier directly. You and the seller can arrange payment, collection and delivery together.</p>
             </div>
+        </div>
+    </dialog>
+
+    <dialog class="profile-dialog" id="profileDialog" aria-labelledby="profileDialogTitle">
+        <form method="dialog" class="profile-dialog__close"><button class="icon-button" type="submit" aria-label="Close profile"><i class="bx bx-x" aria-hidden="true"></i></button></form>
+        <div class="profile-dialog__content">
+            <div id="publicProfileContent"></div>
+            <button class="field-submit" id="editProfileButton" type="button">Edit my profile</button>
+        </div>
+    </dialog>
+
+    <dialog class="inquiry-dialog" id="inquiryDialog" aria-labelledby="inquiryTitle">
+        <div class="inquiry-panel">
+            <div class="cart-heading">
+                <div><p class="section-eyebrow">START A CONVERSATION</p><h2 id="inquiryTitle">Ask the supplier</h2></div>
+                <button class="icon-button" id="closeInquiry" type="button" aria-label="Close enquiry"><i class="bx bx-x" aria-hidden="true"></i></button>
+            </div>
+            <div class="inquiry-supplier" id="inquirySupplier"></div>
+            <form id="inquiryForm" class="inquiry-form">
+                <label class="field"><span>Your name</span><input name="name" required readonly></label>
+                <label class="field"><span>Your email</span><input name="email" type="email" required readonly></label>
+                <label class="field"><span>Phone or WhatsApp</span><input name="phone" type="tel" required readonly></label>
+                <label class="field"><span>Your town and city</span><input name="location" required readonly></label>
+                <label class="field"><span>Message to the supplier</span><textarea name="message" rows="4" maxlength="1000" required placeholder="Ask a question or suggest how you would like to arrange the exchange."></textarea></label>
+                <p class="inquiry-privacy">Your contact details and location will be included in the email you choose to send to this supplier.</p>
+                <button class="field-submit" type="submit">Continue to email <i class="bx bx-envelope" aria-hidden="true"></i></button>
+            </form>
         </div>
     </dialog>
 
