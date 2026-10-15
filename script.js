@@ -5,6 +5,9 @@ const STORAGE_KEYS = {
 let stagedProductPhotos = [];
 let currentUser = null;
 let productsCache = [];
+let activeConversationId = null;
+const trackedProductViews = new Set();
+let adminProductsCache = [];
 
 document.addEventListener('DOMContentLoaded', async () => {
   initFooterMenu();
@@ -24,6 +27,21 @@ function readJson(key, fallback) {
     console.error(`Unable to read AloSwift data from "${key}".`, error);
     showToast('Some saved data could not be read. Refresh or clear this site’s local storage to recover.');
     return fallback;
+  }
+}
+
+async function renderMyReviews(containerId) {
+  const container = document.getElementById(containerId);
+  try {
+    const result = await apiRequest('/api/my-reviews');
+    container.innerHTML = result.reviews.length
+      ? result.reviews.map(review => `<article class="review-card">
+          <div><strong>From ${escapeHtml(review.reviewer_name)}</strong><span class="review-stars" aria-label="${review.stars} out of 5 stars">${'★'.repeat(review.stars)}${'☆'.repeat(5 - review.stars)}</span></div>
+          <p>${escapeHtml(review.comment)}</p><small>${escapeHtml(new Date(review.created_at).toLocaleDateString())}</small>
+        </article>`).join('')
+      : '<p>No reviews yet. Reviews are available after an enquiry.</p>';
+  } catch (error) {
+    container.textContent = error.message || 'Your reviews could not be loaded.';
   }
 }
 
@@ -158,6 +176,22 @@ function initAuthForms() {
   if (roleSelect && new URLSearchParams(window.location.search).get('role') === 'supplier') {
     roleSelect.value = 'supplier';
   }
+  const forgotPasswordLink = document.getElementById('forgotPasswordLink');
+  if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', async event => {
+      event.preventDefault();
+      try {
+        const config = await apiRequest('/api/site-config');
+        if (!config.adminEmail) throw new Error('Admin email is not configured. Please contact the site owner.');
+        const email = loginForm.elements.namedItem('email').value.trim();
+        const subject = 'AloSwift account access help';
+        const body = `Hello AloSwift admin,%0D%0A%0D%0AI need help regaining access to my account.${email ? `%0D%0AMy account email is: ${encodeURIComponent(email)}` : ''}%0D%0APlease help me reset my password.`;
+        window.location.href = `mailto:${encodeURIComponent(config.adminEmail)}?subject=${encodeURIComponent(subject)}&body=${body}`;
+      } catch (error) {
+        showAuthFeedback(loginForm, error.message || 'The admin could not be reached.', true);
+      }
+    });
+  }
 
   if (signupForm) {
     signupForm.addEventListener('submit', async event => {
@@ -209,6 +243,7 @@ function initAuthForms() {
 }
 
 function activateAccount(account) {
+  if (!account || !currentUser || currentUser.id !== account.id) activeConversationId = null;
   currentUser = account || null;
 }
 
@@ -232,7 +267,7 @@ function profileComplete(user) {
 function initProfile() {
   const form = document.getElementById('profileForm');
   const user = getCurrentUser();
-  if (!form || !user) return;
+  if (!form || !user || user.role === 'admin') return;
   renderProfileForm();
   if (!profileComplete(user)) openCustomerDashboard();
 }
@@ -421,7 +456,7 @@ function compressImage(file, maxDimension = 1200) {
   });
 }
 
-function openPublicProfile(userId) {
+async function openPublicProfile(userId) {
   const account = getAccount(userId);
   if (!account || account.role !== 'supplier' || !profileComplete(account)) {
     showToast('This supplier has not completed their public profile yet.');
@@ -433,12 +468,36 @@ function openPublicProfile(userId) {
       <a href="mailto:${encodeURIComponent(account.email)}"><i class="bx bx-envelope" aria-hidden="true"></i> Email supplier</a>
       <a href="tel:${escapeHtml(account.profile.phone.replace(/[^\d+]/g, ''))}"><i class="bx bx-phone" aria-hidden="true"></i> Call supplier</a>
     </div>
-    <button class="field-submit" type="button" data-contact-profile="${escapeHtml(account.id)}">Send an enquiry</button>`);
+    ${currentUser && currentUser.id !== account.id
+      ? `<button class="field-submit" type="button" data-contact-profile="${escapeHtml(account.id)}">Open messages</button>
+        <button class="text-button report-account-button" type="button" data-report-user="${escapeHtml(account.id)}">Report this account</button>` : ''}`);
+  try {
+    const result = await apiRequest(`/api/users/${encodeURIComponent(account.id)}/reviews`);
+    const reviews = result.reviews.map(review => `<article class="review-card">
+      <div><strong>${escapeHtml(review.reviewer_name)}</strong><span class="review-stars" aria-label="${review.stars} out of 5 stars">${'★'.repeat(review.stars)}${'☆'.repeat(5 - review.stars)}</span></div>
+      <p>${escapeHtml(review.comment)}</p><small>${escapeHtml(new Date(review.created_at).toLocaleDateString())}</small>
+    </article>`).join('');
+    const reviewForm = currentUser && currentUser.role === 'customer' && currentUser.id !== account.id
+      ? `<form class="review-form profile-review-form" id="supplierReviewForm" data-target-id="${escapeHtml(account.id)}">
+          <h3>Review this supplier</h3>
+          <label class="field"><span>Rating</span><select name="stars" required><option value="">Choose stars</option><option value="5">★★★★★ — Excellent</option><option value="4">★★★★ — Good</option><option value="3">★★★ — Fair</option><option value="2">★★ — Poor</option><option value="1">★ — Very poor</option></select></label>
+          <label class="field"><span>Comment</span><textarea name="comment" maxlength="1000" required></textarea></label>
+          <button class="field-submit" type="submit">Submit review</button>
+        </form>` : '';
+    document.getElementById('publicProfileContent').insertAdjacentHTML('beforeend', `
+      <section class="profile-reviews"><h3>Reviews (${result.count}) ${result.count ? `· ${Number(result.average).toFixed(1)} / 5` : ''}</h3>
+        ${reviews || '<p>No reviews yet. Reviews can be left after a recorded enquiry.</p>'}
+        ${reviewForm}</section>`);
+  } catch (error) {
+    console.error('Supplier reviews could not be loaded.', error);
+    document.getElementById('publicProfileContent').insertAdjacentHTML('beforeend', '<p class="auth-feedback auth-feedback--error">Reviews could not be loaded. Please try again.</p>');
+  }
   document.getElementById('editProfileButton').hidden = true;
-  document.getElementById('profileDialog').showModal();
+  const profileDialog = document.getElementById('profileDialog');
+  if (!profileDialog.open) profileDialog.showModal();
 }
 
-function openInquiry(productId) {
+async function openInquiry(productId) {
   const user = getCurrentUser();
   if (!user) {
     window.location.href = 'login.html';
@@ -455,53 +514,21 @@ function openInquiry(productId) {
     showToast('This supplier is not ready to receive enquiries yet.');
     return;
   }
-  const form = document.getElementById('inquiryForm');
-  form.dataset.productId = product.id;
-  form.elements.namedItem('name').value = user.name;
-  form.elements.namedItem('email').value = user.email;
-  form.elements.namedItem('phone').value = user.profile.phone;
-  form.elements.namedItem('location').value = [user.profile.town, user.profile.city, user.profile.region, user.profile.country].filter(Boolean).join(', ');
-  form.elements.namedItem('message').value = '';
-  const avatar = safeImageUrl(supplier.profile.avatar);
-  document.getElementById('inquirySupplier').innerHTML = `
-    <div class="inquiry-supplier__avatar">${avatar ? `<img src="${escapeHtml(avatar)}" alt="">` : ''}</div>
-    <div><strong>${escapeHtml(supplier.profile.businessName)}</strong><span>${escapeHtml(supplier.name)}</span>
-      <span>${escapeHtml([supplier.profile.town, supplier.profile.city, supplier.profile.region].filter(Boolean).join(', '))}</span>
-      <span>${escapeHtml(product.name)} · ${formatPrice(product.price)}</span></div>`;
-  document.getElementById('inquiryDialog').showModal();
+  try {
+    const result = await requestJson('/api/conversations', 'POST', { productId: product.id });
+    await openMessagesDialog(result.conversationId);
+  } catch (error) {
+    showToast(error.message || 'A conversation could not be started.');
+  }
 }
 
-function sendSupplierInquiry(event) {
-  event.preventDefault();
-  const form = event.currentTarget;
-  const product = getProducts().find(item => item.id === form.dataset.productId);
-  const supplier = product && getAccount(product.ownerId);
-  const user = getCurrentUser();
-  if (!product || !supplier || !user || !profileComplete(user) || !profileComplete(supplier)) {
-    showToast('The product or contact details are no longer available.');
-    return;
+async function openDirectConversation(peerId) {
+  try {
+    const result = await requestJson('/api/conversations', 'POST', { peerId });
+    await openMessagesDialog(result.conversationId);
+  } catch (error) {
+    showToast(error.message || 'A conversation could not be started.');
   }
-  const message = String(new FormData(form).get('message') || '').trim();
-  const subject = `Enquiry about ${product.name} on AloSwift`;
-  const body = [
-    `Hello ${supplier.profile.businessName},`,
-    '',
-    message,
-    '',
-    `Item: ${product.name}`,
-    `Listed price: ${formatPrice(product.price)}`,
-    '',
-    'Customer contact details:',
-    `Name: ${user.name}`,
-    `Email: ${user.email}`,
-    `Phone / WhatsApp: ${user.profile.phone}`,
-    `Location: ${[user.profile.town, user.profile.city, user.profile.region, user.profile.country].filter(Boolean).join(', ')}`,
-    '',
-    'Please reply directly so we can agree how to complete the exchange.',
-  ].join('\n');
-  window.location.href = `mailto:${encodeURIComponent(supplier.email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  document.getElementById('inquiryDialog').close();
-  showToast('Your email app is opening with the enquiry details.');
 }
 
 async function initShop() {
@@ -539,6 +566,8 @@ async function initShop() {
     renderCatalog();
   });
   grid.addEventListener('click', event => {
+    const productCard = event.target.closest('[data-track-product]');
+    if (productCard) trackProductView(productCard.dataset.trackProduct);
     const button = event.target.closest('[data-add-to-cart]');
     if (button) addToCart(button.dataset.addToCart);
     const contactButton = event.target.closest('[data-contact-seller]');
@@ -547,17 +576,22 @@ async function initShop() {
     if (sellerButton) openPublicProfile(sellerButton.dataset.viewSeller);
   });
 
-  document.getElementById('profileTrigger').addEventListener('click', openCustomerDashboard);
+  document.getElementById('profileTrigger').addEventListener('click', () => {
+    if (currentUser && currentUser.role === 'admin') openAdminDashboard();
+    else openCustomerDashboard();
+  });
   document.getElementById('listingTrigger').addEventListener('click', () => {
     const user = getCurrentUser();
-    if (user && user.role === 'supplier') openSupplierDashboard();
+    if (user && user.role === 'admin') openAdminDashboard();
+    else if (user && user.role === 'supplier') openSupplierDashboard();
     else openCustomerDashboard();
   });
   document.getElementById('supplierCta').addEventListener('click', event => {
     const user = getCurrentUser();
     if (!user) return;
     event.preventDefault();
-    if (user.role === 'supplier') openSupplierDashboard();
+    if (user.role === 'admin') openAdminDashboard();
+    else if (user.role === 'supplier') openSupplierDashboard();
     else openCustomerDashboard();
   });
   document.getElementById('backToShopFromAccount').addEventListener('click', closeSupplierDashboard);
@@ -566,6 +600,8 @@ async function initShop() {
   document.getElementById('cancelEdit').addEventListener('click', resetProductForm);
   document.getElementById('sellerProducts').addEventListener('click', handleSellerProductAction);
   document.getElementById('profileForm').addEventListener('submit', saveProfile);
+  document.getElementById('customerReviewForm').addEventListener('submit', submitCustomerReview);
+  document.getElementById('supplierReportForm').addEventListener('submit', submitSupplierReport);
   document.getElementById('editProfileButton').addEventListener('click', () => {
     document.getElementById('profileDialog').close();
     openCustomerDashboard();
@@ -595,22 +631,360 @@ async function initShop() {
     handleCartAction(event);
     const contactButton = event.target.closest('[data-contact-seller]');
     if (contactButton) {
+      trackProductView(contactButton.dataset.contactSeller);
       document.getElementById('cartDialog').close();
       openInquiry(contactButton.dataset.contactSeller);
     }
   });
-  document.getElementById('closeInquiry').addEventListener('click', () => document.getElementById('inquiryDialog').close());
-  document.getElementById('inquiryForm').addEventListener('submit', sendSupplierInquiry);
+  document.getElementById('publicProfileContent').addEventListener('submit', event => {
+    if (event.target.id === 'supplierReviewForm') submitSupplierReview(event);
+  });
+  document.getElementById('publicProfileContent').addEventListener('click', event => {
+    const button = event.target.closest('[data-report-user]');
+    if (button) openReportDialog(button.dataset.reportUser);
+  });
+  document.getElementById('reportForm').addEventListener('submit', submitAccountReport);
+  document.getElementById('closeReport').addEventListener('click', () => document.getElementById('reportDialog').close());
+  document.getElementById('openMessages').addEventListener('click', () => openMessagesDialog());
+  document.getElementById('closeMessages').addEventListener('click', () => document.getElementById('messagesDialog').close());
+  document.getElementById('conversationList').addEventListener('click', event => {
+    const button = event.target.closest('[data-conversation-id]');
+    if (!button) return;
+    activeConversationId = button.dataset.conversationId;
+    openMessagesDialog(activeConversationId);
+  });
+  document.getElementById('conversationComposer').addEventListener('submit', sendConversationMessage);
+  document.getElementById('startSupportConversation').addEventListener('click', () => openDirectConversation(''));
+  document.getElementById('adminMessageForm').addEventListener('submit', submitAdminMessage);
+  document.getElementById('refreshAdmin').addEventListener('click', renderAdminOverview);
+  document.getElementById('adminOpenInbox').addEventListener('click', () => openMessagesDialog());
+  document.getElementById('adminAccounts').addEventListener('click', handleAdminAccountAction);
+  document.getElementById('adminReports').addEventListener('click', handleAdminReportAction);
+  document.getElementById('adminProductFilter').addEventListener('input', event => renderAdminProducts(event.target.value));
   document.getElementById('publicProfileContent').addEventListener('click', event => {
     const button = event.target.closest('[data-contact-profile]');
     if (button) {
       document.getElementById('profileDialog').close();
-      openInquiry(button.dataset.contactProfile);
+      openDirectConversation(button.dataset.contactProfile);
     }
   });
-  document.getElementById('inquiryDialog').addEventListener('click', event => {
-    if (event.target === event.currentTarget) event.currentTarget.close();
-  });
+  if (currentUser && currentUser.role === 'admin') openAdminDashboard();
+}
+
+function trackProductView(productId) {
+  if (!productId || trackedProductViews.has(productId)) return;
+  trackedProductViews.add(productId);
+  apiRequest(`/api/products/${encodeURIComponent(productId)}/view`, { method: 'POST' })
+    .catch(error => console.error('Product interest could not be recorded.', error));
+}
+
+function setActiveDashboard(activeId) {
+  const sections = ['catalog', 'customerDashboard', 'supplierDashboard', 'adminDashboard'];
+  sections.forEach(id => { document.getElementById(id).hidden = id !== activeId; });
+  document.querySelector('.shop-hero').hidden = activeId !== 'catalog';
+  document.querySelector('.supplier-callout').hidden = activeId !== 'catalog';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+async function openAdminDashboard() {
+  if (!currentUser || currentUser.role !== 'admin') return;
+  setActiveDashboard('adminDashboard');
+  await renderAdminOverview();
+}
+
+async function renderAdminOverview() {
+  try {
+    const overview = await apiRequest('/api/admin/overview');
+    document.getElementById('adminVisitorCount').textContent = overview.visitorCount.toLocaleString();
+    document.getElementById('adminAccountCount').textContent = overview.accountCount.toLocaleString();
+    document.getElementById('adminProductCount').textContent = overview.productCount.toLocaleString();
+    document.getElementById('adminReportCount').textContent = overview.openReportCount.toLocaleString();
+    document.getElementById('adminUnreadCount').textContent = overview.unreadMessageCount.toLocaleString();
+    document.getElementById('adminAccounts').innerHTML = overview.users
+      .filter(user => user.role !== 'admin')
+      .map(user => {
+        const location = user.profile
+          ? [user.profile.town, user.profile.city, user.profile.region, user.profile.country].filter(Boolean).join(', ')
+          : '';
+        const contact = [
+          user.profile && user.profile.phone,
+          location,
+          user.profile && user.profile.businessName,
+          user.profile && user.profile.businessId,
+          user.profile && user.profile.bio,
+        ].filter(Boolean).join(' · ');
+        const banLabel = user.bannedUntil === 'permanent'
+          ? `Banned permanently${user.banReason ? `: ${user.banReason}` : ''}`
+          : user.bannedUntil && Date.parse(user.bannedUntil) > Date.now()
+            ? `Banned until ${new Date(user.bannedUntil).toLocaleString()}`
+            : 'Active';
+        return `<tr>
+          <td><strong>${escapeHtml(user.name)}</strong><br><span>${escapeHtml(user.email)} · ${escapeHtml(user.role)}</span>${contact ? `<br><small>${escapeHtml(contact)}</small>` : ''}</td>
+          <td>${escapeHtml(new Date(user.createdAt).toLocaleString())}</td>
+          <td>${user.lastVisited ? escapeHtml(new Date(user.lastVisited).toLocaleString()) : 'No signed-in visit recorded'}</td>
+          <td>${escapeHtml(banLabel)}</td>
+          <td class="admin-actions">
+            <select data-ban-duration="${escapeHtml(user.id)}" aria-label="Ban duration for ${escapeHtml(user.name)}"><option value="24">24 hours</option><option value="168">7 days</option><option value="720">30 days</option><option value="8760">365 days</option><option value="0">Permanent</option></select>
+            <button class="text-button" type="button" data-admin-action="ban" data-user-id="${escapeHtml(user.id)}">Ban</button>
+            ${user.bannedUntil ? `<button class="text-button" type="button" data-admin-action="unban" data-user-id="${escapeHtml(user.id)}">Unban</button>` : ''}
+            <button class="text-button text-button--danger" type="button" data-admin-action="delete" data-user-id="${escapeHtml(user.id)}">Delete</button>
+          </td>
+        </tr>`;
+      }).join('');
+    const recipients = overview.users.filter(user => user.role !== 'admin');
+    const options = recipients.map(user => `<option value="${escapeHtml(user.id)}">${escapeHtml(user.name)} (${escapeHtml(user.email)})</option>`).join('');
+    document.getElementById('adminMessageRecipient').innerHTML = `<option value="">Choose an account</option>${options}`;
+    document.getElementById('adminReports').innerHTML = overview.reports.length
+      ? overview.reports.map(report => `<article class="admin-list__item">
+          <div><strong>${escapeHtml(report.subjectName)} · ${escapeHtml(report.reason)}</strong><span>${escapeHtml(report.subjectEmail)} · Reported by ${escapeHtml(report.reporterName)} (${escapeHtml(report.reporterEmail)}) · ${escapeHtml(new Date(report.createdAt).toLocaleString())}</span><p>${escapeHtml(report.details)}</p></div>
+          ${report.status === 'open' ? `<button class="text-button" type="button" data-report-action="close" data-report-id="${escapeHtml(report.id)}">Mark reviewed</button>` : '<span>Reviewed</span>'}
+        </article>`).join('')
+      : '<p>No account reports have been submitted.</p>';
+    document.getElementById('adminReviews').innerHTML = overview.reviews.length
+      ? overview.reviews.map(review => `<article class="admin-list__item"><div>
+          <strong>${escapeHtml(review.stars)} / 5 · ${escapeHtml(review.reviewee_name)} (${escapeHtml(review.reviewee_role)})</strong>
+          <span>From ${escapeHtml(review.reviewer_name)} (${escapeHtml(review.reviewer_role)}) · ${escapeHtml(new Date(review.created_at).toLocaleString())}</span>
+          <p>${escapeHtml(review.comment)}</p>
+        </div></article>`).join('')
+      : '<p>No reviews have been submitted.</p>';
+    adminProductsCache = overview.products;
+    renderAdminProducts(document.getElementById('adminProductFilter').value);
+    document.getElementById('adminVisits').innerHTML = overview.visits.map(visit => `<tr>
+      <td>${escapeHtml(visit.date)}</td><td>${Number(visit.visitors).toLocaleString()}</td><td>${Number(visit.pageVisits).toLocaleString()}</td>
+    </tr>`).join('');
+  } catch (error) {
+    showToast(error.message || 'Admin data could not be loaded.');
+  }
+
+  function renderAdminProducts(filter = '') {
+    const normalizedFilter = String(filter).trim().toLowerCase();
+    const matches = adminProductsCache.filter(product =>
+      `${product.name} ${product.description} ${product.supplier.name} ${product.supplier.email} ${product.category}`.toLowerCase().includes(normalizedFilter));
+    document.getElementById('adminProducts').innerHTML = matches.length
+      ? matches.map(product => {
+        const image = safeImageUrl(product.image);
+        return `<article class="admin-product-card">
+          <div class="admin-product-card__image">${image ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}">` : '<i class="bx bx-image" aria-hidden="true"></i>'}</div>
+          <div class="admin-product-card__content"><strong>${escapeHtml(product.name)}</strong>
+            <span>${escapeHtml(product.supplier.name)} · ${escapeHtml(product.supplier.email)} · ${escapeHtml(product.category)}</span>
+            <p>${escapeHtml(product.description)}</p>
+            <small>${formatPrice(product.price)} · ${Number(product.stock)} in stock · ${Number(product.uniqueViews || 0).toLocaleString()} unique interested visitors</small>
+          </div>
+        </article>`;
+      }).join('')
+      : '<p>No product listings match that filter.</p>';
+  }
+}
+
+async function handleAdminAccountAction(event) {
+  const button = event.target.closest('[data-admin-action]');
+  if (!button) return;
+  const userId = button.dataset.userId;
+  try {
+    if (button.dataset.adminAction === 'delete') {
+      if (!window.confirm('Permanently delete this account and its listings? This cannot be undone.')) return;
+      await apiRequest(`/api/admin/users/${encodeURIComponent(userId)}`, { method: 'DELETE' });
+      showToast('The account and its listings were deleted.');
+    } else if (button.dataset.adminAction === 'unban') {
+      await requestJson(`/api/admin/users/${encodeURIComponent(userId)}/ban`, 'POST', { durationHours: -1 });
+      showToast('The account ban has been lifted.');
+    } else {
+      const reason = window.prompt('Why is this account being banned?');
+      if (!reason || !reason.trim()) return;
+      const durationHours = Number(document.querySelector(`[data-ban-duration="${CSS.escape(userId)}"]`).value);
+      await requestJson(`/api/admin/users/${encodeURIComponent(userId)}/ban`, 'POST', { durationHours, reason: reason.trim() });
+      showToast(durationHours ? 'The timed account ban has been applied.' : 'The permanent account ban has been applied.');
+    }
+    await renderAdminOverview();
+  } catch (error) {
+    showToast(error.message || 'That moderation action could not be completed.');
+  }
+}
+
+async function handleAdminReportAction(event) {
+  const button = event.target.closest('[data-report-action="close"]');
+  if (!button) return;
+  try {
+    await requestJson(`/api/admin/reports/${encodeURIComponent(button.dataset.reportId)}`, 'POST', { status: 'closed' });
+    await renderAdminOverview();
+  } catch (error) {
+    showToast(error.message || 'The report could not be updated.');
+  }
+}
+
+async function openMessagesDialog(conversationId = activeConversationId) {
+  try {
+    const result = await apiRequest('/api/conversations');
+    const list = document.getElementById('conversationList');
+    list.innerHTML = result.conversations.length
+      ? result.conversations.map(conversation => `<button type="button" class="conversation-item${conversation.id === conversationId ? ' is-active' : ''}" data-conversation-id="${escapeHtml(conversation.id)}">
+          <span class="conversation-item__avatar">${escapeHtml(conversation.peer.name.slice(0, 1).toUpperCase())}</span>
+          <span class="conversation-item__copy"><strong>${escapeHtml(conversation.peer.name)}</strong><small>${escapeHtml(conversation.product.name)}</small><small>${escapeHtml(new Date(conversation.lastMessageAt).toLocaleDateString())}</small></span>
+          ${conversation.unreadCount ? `<span class="conversation-item__unread">${conversation.unreadCount}</span>` : ''}
+        </button>`).join('')
+      : '<p class="conversation-empty">Your conversations with customers, suppliers and AloSwift support will appear here.</p>';
+    if (currentUser.role === 'admin') {
+      document.getElementById('adminUnreadCount').textContent = String(result.conversations.reduce((sum, item) => sum + Number(item.unreadCount || 0), 0));
+    }
+    document.getElementById('startSupportConversation').hidden = currentUser.role === 'admin';
+    const dialog = document.getElementById('messagesDialog');
+    if (!dialog.open) dialog.showModal();
+    activeConversationId = conversationId;
+    if (conversationId) await renderConversation(conversationId);
+    else renderConversationPlaceholder();
+  } catch (error) {
+    showToast(error.message || 'Messages could not be loaded.');
+  }
+}
+
+function renderConversationPlaceholder(message = 'Choose a conversation to read and reply.') {
+  document.getElementById('conversationHeading').textContent = 'Your messages';
+  document.getElementById('conversationProduct').textContent = '';
+  document.getElementById('conversationMessages').innerHTML = `<p class="conversation-empty">${escapeHtml(message)}</p>`;
+  document.getElementById('conversationComposer').hidden = true;
+}
+
+async function renderConversation(conversationId) {
+  try {
+    const result = await apiRequest(`/api/conversations/${encodeURIComponent(conversationId)}/messages`);
+    const { conversation } = result;
+    document.getElementById('conversationHeading').textContent = conversation.peer.name;
+    document.getElementById('conversationProduct').textContent = conversation.product.name;
+    const composer = document.getElementById('conversationComposer');
+    composer.hidden = false;
+    composer.dataset.conversationId = conversation.id;
+    const thread = document.getElementById('conversationMessages');
+    thread.innerHTML = result.messages.map(message => `<article class="chat-bubble${message.sender_id === currentUser.id ? ' chat-bubble--own' : ''}${message.legacyEncrypted ? ' chat-bubble--legacy' : ''}">
+      <p>${escapeHtml(message.body)}</p><time>${message.legacyEncrypted ? 'Legacy encrypted message · ' : ''}${escapeHtml(new Date(message.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }))}</time>
+    </article>`).join('') || '<p class="conversation-empty">Say hello to start the conversation.</p>';
+    thread.scrollTop = thread.scrollHeight;
+    await refreshConversationList();
+  } catch (error) {
+    showToast(error.message || 'This conversation could not be loaded.');
+  }
+}
+
+async function refreshConversationList() {
+  const result = await apiRequest('/api/conversations');
+  document.getElementById('conversationList').innerHTML = result.conversations.map(conversation => `
+    <button type="button" class="conversation-item${conversation.id === activeConversationId ? ' is-active' : ''}" data-conversation-id="${escapeHtml(conversation.id)}">
+      <span class="conversation-item__avatar">${escapeHtml(conversation.peer.name.slice(0, 1).toUpperCase())}</span>
+      <span class="conversation-item__copy"><strong>${escapeHtml(conversation.peer.name)}</strong><small>${escapeHtml(conversation.product.name)}</small><small>${escapeHtml(new Date(conversation.lastMessageAt).toLocaleDateString())}</small></span>
+      ${conversation.unreadCount ? `<span class="conversation-item__unread">${conversation.unreadCount}</span>` : ''}
+    </button>`).join('') || '<p class="conversation-empty">Your conversations will appear here.</p>';
+}
+
+async function sendConversationMessage(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const textArea = form.elements.namedItem('message');
+  const text = String(textArea.value || '').trim();
+  if (!text || text.length > 9000 || !activeConversationId) return;
+  const button = form.querySelector('[type="submit"]');
+  button.disabled = true;
+  try {
+    await requestJson(`/api/conversations/${encodeURIComponent(activeConversationId)}/messages`, 'POST', { message: text });
+    textArea.value = '';
+    await renderConversation(activeConversationId);
+  } catch (error) {
+    showToast(error.message || 'Your message could not be sent.');
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function submitAdminMessage(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  try {
+    const result = await requestJson('/api/conversations', 'POST', { peerId: values.get('recipientId') });
+    const message = String(values.get('message') || '').trim();
+    form.reset();
+    await openMessagesDialog(result.conversationId);
+    if (message) {
+      const composer = document.getElementById('conversationComposer');
+      composer.elements.namedItem('message').value = message;
+      composer.requestSubmit();
+    }
+  } catch (error) {
+    showToast(error.message || 'A conversation could not be opened.');
+  }
+}
+
+function openReportDialog(subjectId) {
+  const form = document.getElementById('reportForm');
+  form.dataset.subjectId = subjectId;
+  form.reset();
+  document.getElementById('reportDialog').showModal();
+}
+
+async function submitAccountReport(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  try {
+    await requestJson('/api/reports', 'POST', {
+      subjectId: form.dataset.subjectId,
+      reason: values.get('reason'),
+      details: String(values.get('details') || '').trim(),
+    });
+    document.getElementById('reportDialog').close();
+    showToast('Your report was sent privately to the master admin.');
+  } catch (error) {
+    showToast(error.message || 'Your report could not be submitted.');
+  }
+}
+
+async function submitSupplierReport(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  try {
+    await requestJson('/api/reports', 'POST', {
+      subjectEmail: values.get('subjectEmail'),
+      reason: values.get('reason'),
+      details: String(values.get('details') || '').trim(),
+    });
+    form.reset();
+    showToast('Your report was sent privately to the master admin.');
+  } catch (error) {
+    showToast(error.message || 'Your report could not be submitted.');
+  }
+}
+
+async function submitSupplierReview(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  try {
+    await requestJson('/api/reviews', 'POST', {
+      targetId: form.dataset.targetId,
+      stars: Number(values.get('stars')),
+      comment: String(values.get('comment') || '').trim(),
+    });
+    await openPublicProfile(form.dataset.targetId);
+    showToast('Your review has been published.');
+  } catch (error) {
+    showToast(error.message || 'Your review could not be submitted.');
+  }
+}
+
+async function submitCustomerReview(event) {
+  event.preventDefault();
+  const form = event.currentTarget;
+  const values = new FormData(form);
+  try {
+    await requestJson('/api/reviews', 'POST', {
+      targetEmail: values.get('targetEmail'),
+      stars: Number(values.get('stars')),
+      comment: String(values.get('comment') || '').trim(),
+    });
+    form.reset();
+    showToast('Your review has been published.');
+  } catch (error) {
+    showToast(error.message || 'Your review could not be submitted.');
+  }
 }
 
 function getProducts() {
@@ -666,7 +1040,7 @@ function renderCatalog() {
     const stock = Number(product.stock) || 0;
     const seller = getAccount(product.ownerId);
     const sellerName = seller && seller.profile ? seller.profile.businessName : product.seller || 'Independent seller';
-    return `<article class="product-card">
+    return `<article class="product-card" data-track-product="${escapeHtml(product.id)}">
       <div class="product-card__image">${image
         ? `<img src="${escapeHtml(image)}" alt="${escapeHtml(product.name)}" loading="lazy">`
         : '<span class="product-placeholder"><i class="bx bx-image" aria-hidden="true"></i></span>'}
@@ -708,13 +1082,14 @@ function renderHeader() {
   const name = document.getElementById('accountName');
   const listingTrigger = document.getElementById('listingTrigger');
   if (user) {
-    name.textContent = user.name || 'My profile';
+    name.textContent = user.role === 'admin' ? 'Master admin' : user.name || 'My profile';
     const avatar = document.getElementById('headerAvatar');
     const image = safeImageUrl(user.profile && user.profile.avatar);
     avatar.hidden = !image;
     avatar.src = image;
     document.getElementById('headerAvatarPlaceholder').hidden = Boolean(image);
-    listingTrigger.textContent = user.role === 'supplier' ? 'My shop' : 'My account';
+    listingTrigger.textContent = user.role === 'admin' ? 'Admin dashboard' : user.role === 'supplier' ? 'My shop' : 'My account';
+    document.getElementById('openMessages').hidden = user.role === 'admin';
   }
 }
 
@@ -821,13 +1196,9 @@ function openSupplierDashboard() {
     openCustomerDashboard();
     return;
   }
-  document.getElementById('customerDashboard').hidden = true;
-  document.getElementById('supplierDashboard').hidden = false;
-  document.getElementById('catalog').hidden = true;
-  document.querySelector('.shop-hero').hidden = true;
-  document.querySelector('.supplier-callout').hidden = true;
+  setActiveDashboard('supplierDashboard');
   renderSellerProducts();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderMyReviews('supplierReviews');
 }
 
 function openCustomerDashboard() {
@@ -836,23 +1207,20 @@ function openCustomerDashboard() {
     window.location.href = 'login.html';
     return;
   }
-  document.getElementById('supplierDashboard').hidden = true;
-  document.getElementById('customerDashboard').hidden = false;
-  document.getElementById('catalog').hidden = true;
-  document.querySelector('.shop-hero').hidden = true;
-  document.querySelector('.supplier-callout').hidden = true;
+  if (user.role === 'admin') {
+    openAdminDashboard();
+    return;
+  }
+  setActiveDashboard('customerDashboard');
   renderProfileForm();
-  window.scrollTo({ top: 0, behavior: 'smooth' });
+  renderMyReviews('customerReviews');
 }
 
 function closeSupplierDashboard() {
   const dashboard = document.getElementById('supplierDashboard');
   if (!dashboard) return;
   dashboard.hidden = true;
-  document.getElementById('customerDashboard').hidden = true;
-  document.getElementById('catalog').hidden = false;
-  document.querySelector('.shop-hero').hidden = false;
-  document.querySelector('.supplier-callout').hidden = false;
+  setActiveDashboard('catalog');
   resetProductForm();
 }
 
@@ -866,7 +1234,7 @@ function renderSellerProducts() {
     const image = safeImageUrl(getProductImages(product)[0]);
     return `<article class="seller-product">
       <div class="seller-product__image">${image ? `<img src="${escapeHtml(image)}" alt="">` : '<i class="bx bx-image" aria-hidden="true"></i>'}</div>
-      <div class="seller-product__details"><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.category)} · ${Number(product.stock)} in stock</p><strong>${formatPrice(product.price)}</strong></div>
+      <div class="seller-product__details"><h4>${escapeHtml(product.name)}</h4><p>${escapeHtml(product.category)} · ${Number(product.stock)} in stock</p><strong>${formatPrice(product.price)}</strong><small class="seller-product__views">${Number(product.uniqueViews || 0).toLocaleString()} unique interested visitors</small></div>
       <div class="seller-product__actions"><button class="text-button" type="button" data-seller-action="edit" data-product-id="${escapeHtml(product.id)}">Edit</button><button class="text-button text-button--danger" type="button" data-seller-action="delete" data-product-id="${escapeHtml(product.id)}">Delete</button></div>
     </article>`;
   }).join('');

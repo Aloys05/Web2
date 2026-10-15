@@ -22,11 +22,6 @@
     <header class="site-header">
         <div class="site-header__inner">
             <a href="index.html" class="logo">AloSwift</a>
-            <nav class="shop-nav" aria-label="Main navigation">
-                <a href="shop.html" class="nav-link" aria-current="page">Shop</a>
-                <a href="about.html" class="nav-link">Our story</a>
-                <a href="contact.html" class="nav-link">Contact</a>
-            </nav>
             <div class="shop-header-actions">
                 <div class="auth" id="authSignedOut">
                     <a class="auth__trigger" href="login.html">Log in</a>
@@ -39,6 +34,7 @@
                         <span class="profile-trigger__label" id="accountName">My profile</span>
                     </button>
                     <button class="auth__trigger" id="listingTrigger" type="button">My shop</button>
+                    <button class="auth__trigger" id="openMessages" type="button">Messages</button>
                     <button class="auth__trigger" id="logoutTrigger" type="button">Sign out</button>
                 </div>
                 <button class="cart-trigger" id="cartTrigger" type="button" aria-label="Open shopping bag">
@@ -142,6 +138,10 @@
                     <button class="field-submit" type="submit">Save profile</button>
                 </form>
             </div>
+            <section class="dashboard-panel my-reviews" aria-labelledby="myCustomerReviewsTitle">
+                <h3 id="myCustomerReviewsTitle">Reviews about you</h3>
+                <div id="customerReviews"></div>
+            </section>
         </section>
 
         <section class="supplier-dashboard" id="supplierDashboard" hidden aria-labelledby="dashboardTitle">
@@ -186,6 +186,77 @@
                     <p class="seller-empty" id="sellerEmpty" hidden>Your shop is ready for its first product.</p>
                 </div>
             </div>
+            <section class="dashboard-panel" aria-labelledby="supplierReviewTitle">
+                <h3 id="supplierReviewTitle">Review a customer</h3>
+                <p>Review a customer you have exchanged an enquiry with. Use the email address they shared with you.</p>
+                <form class="review-form" id="customerReviewForm">
+                    <label class="field"><span>Customer email</span><input name="targetEmail" type="email" required></label>
+                    <label class="field"><span>Rating</span><select name="stars" required><option value="">Choose stars</option><option value="5">★★★★★ — Excellent</option><option value="4">★★★★ — Good</option><option value="3">★★★ — Fair</option><option value="2">★★ — Poor</option><option value="1">★ — Very poor</option></select></label>
+                    <label class="field"><span>Comment</span><textarea name="comment" maxlength="1000" required></textarea></label>
+                    <button class="field-submit" type="submit">Submit review</button>
+                </form>
+                <form class="review-form admin-report-form" id="supplierReportForm">
+                    <h3>Report a customer</h3>
+                    <label class="field"><span>Customer email</span><input name="subjectEmail" type="email" required></label>
+                    <label class="field"><span>Reason</span><select name="reason" required><option value="scam">Suspected scam</option><option value="imposter">Impersonation</option><option value="misleading">Misleading information</option><option value="other">Other concern</option></select></label>
+                    <label class="field"><span>Details</span><textarea name="details" maxlength="2000" required></textarea></label>
+                    <button class="text-button" type="submit">Send report to admin</button>
+                </form>
+            </section>
+            <section class="dashboard-panel my-reviews" aria-labelledby="mySupplierReviewsTitle">
+                <h3 id="mySupplierReviewsTitle">Reviews about your shop</h3>
+                <div id="supplierReviews"></div>
+            </section>
+        </section>
+
+        <section class="admin-dashboard" id="adminDashboard" hidden aria-labelledby="adminDashboardTitle">
+            <div class="dashboard-heading">
+                <div>
+                    <p class="section-eyebrow">MASTER ADMIN</p>
+                    <h2 id="adminDashboardTitle">Marketplace overview</h2>
+                    <p class="dashboard-subtitle">Moderate listings and accounts, review reports, and contact members.</p>
+                </div>
+                <div class="dashboard-actions">
+                    <button class="text-button" id="refreshAdmin" type="button">Refresh data</button>
+                    <button class="text-button" id="adminOpenInbox" type="button">Open admin inbox</button>
+                </div>
+            </div>
+            <div class="admin-stats">
+                <article><span>Unique visitors</span><strong id="adminVisitorCount">0</strong></article>
+                <article><span>Accounts created</span><strong id="adminAccountCount">0</strong></article>
+                <article><span>Active listings</span><strong id="adminProductCount">0</strong></article>
+                <article><span>Open reports</span><strong id="adminReportCount">0</strong></article>
+                <article><span>Unread messages</span><strong id="adminUnreadCount">0</strong></article>
+            </div>
+            <section class="dashboard-panel">
+                <h3>Accounts</h3>
+                <p>Creation dates, latest page visits and profile contact details are shown here. Passwords are never viewable.</p>
+                <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Account</th><th>Created</th><th>Last visit</th><th>Status</th><th>Moderation</th></tr></thead><tbody id="adminAccounts"></tbody></table></div>
+            </section>
+            <section class="dashboard-panel">
+                <h3>Start a conversation</h3>
+                <form class="review-form" id="adminMessageForm">
+                    <label class="field"><span>Account</span><select name="recipientId" id="adminMessageRecipient" required></select></label>
+                    <button class="field-submit" type="submit">Open conversation</button>
+                </form>
+            </section>
+            <section class="dashboard-panel">
+                <h3>Account reports</h3>
+                <div id="adminReports" class="admin-list"></div>
+            </section>
+            <section class="dashboard-panel">
+                <h3>Customer and supplier reviews</h3>
+                <div id="adminReviews" class="admin-list"></div>
+            </section>
+            <section class="dashboard-panel">
+                <h3>All product listings</h3>
+                <label class="search-field admin-product-search"><i class="bx bx-search" aria-hidden="true"></i><span class="sr-only">Filter product listings</span><input id="adminProductFilter" type="search" placeholder="Filter by product, supplier or description"></label>
+                <div id="adminProducts" class="admin-list"></div>
+            </section>
+            <section class="dashboard-panel">
+                <h3>Daily website traffic</h3>
+                <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Unique visitors</th><th>Page views</th></tr></thead><tbody id="adminVisits"></tbody></table></div>
+            </section>
         </section>
     </main>
 
@@ -213,21 +284,36 @@
         </div>
     </dialog>
 
-    <dialog class="inquiry-dialog" id="inquiryDialog" aria-labelledby="inquiryTitle">
-        <div class="inquiry-panel">
-            <div class="cart-heading">
-                <div><p class="section-eyebrow">START A CONVERSATION</p><h2 id="inquiryTitle">Ask the supplier</h2></div>
-                <button class="icon-button" id="closeInquiry" type="button" aria-label="Close enquiry"><i class="bx bx-x" aria-hidden="true"></i></button>
+    <dialog class="messages-dialog" id="messagesDialog" aria-labelledby="messagesTitle">
+        <section class="messages-panel">
+            <header class="messages-panel__header">
+                <div><p class="section-eyebrow">PRIVATE MARKETPLACE MESSAGES</p><h2 id="messagesTitle">Messages</h2></div>
+                <button class="text-button" id="startSupportConversation" type="button">Contact AloSwift support</button>
+                <button class="icon-button" id="closeMessages" type="button" aria-label="Close messages">×</button>
+            </header>
+            <div class="messages-layout">
+                <nav class="conversation-list" id="conversationList" aria-label="Conversations"></nav>
+                <section class="conversation-view" aria-label="Selected conversation">
+                    <header class="conversation-view__header"><div><h3 id="conversationHeading">Your messages</h3><p id="conversationProduct"></p></div></header>
+                    <div class="conversation-messages" id="conversationMessages" aria-live="polite"></div>
+                    <form class="conversation-composer" id="conversationComposer" hidden>
+                        <label class="sr-only" for="conversationMessage">Write a message</label>
+                        <textarea id="conversationMessage" name="message" maxlength="9000" rows="2" placeholder="Write a message…" required></textarea>
+                        <button class="field-submit" type="submit" aria-label="Send message"><i class="bx bx-send" aria-hidden="true"></i><span>Send</span></button>
+                    </form>
+                    <p class="conversation-privacy">Messages are visible to conversation participants and stored by AloSwift.</p>
+                </section>
             </div>
-            <div class="inquiry-supplier" id="inquirySupplier"></div>
-            <form id="inquiryForm" class="inquiry-form">
-                <label class="field"><span>Your name</span><input name="name" required readonly></label>
-                <label class="field"><span>Your email</span><input name="email" type="email" required readonly></label>
-                <label class="field"><span>Phone or WhatsApp</span><input name="phone" type="tel" required readonly></label>
-                <label class="field"><span>Your town and city</span><input name="location" required readonly></label>
-                <label class="field"><span>Message to the supplier</span><textarea name="message" rows="4" maxlength="1000" required placeholder="Ask a question or suggest how you would like to arrange the exchange."></textarea></label>
-                <p class="inquiry-privacy">Your contact details and location will be included in the email you choose to send to this supplier.</p>
-                <button class="field-submit" type="submit">Continue to email <i class="bx bx-envelope" aria-hidden="true"></i></button>
+        </section>
+    </dialog>
+
+    <dialog class="report-dialog" id="reportDialog" aria-labelledby="reportTitle">
+        <div class="report-panel">
+            <div class="cart-heading"><div><p class="section-eyebrow">SAFETY REPORT</p><h2 id="reportTitle">Report this account</h2></div><button class="icon-button" id="closeReport" type="button" aria-label="Close report">×</button></div>
+            <form class="review-form" id="reportForm">
+                <label class="field"><span>Reason</span><select name="reason" required><option value="scam">Suspected scam</option><option value="imposter">Impersonation</option><option value="misleading">Misleading information</option><option value="other">Other concern</option></select></label>
+                <label class="field"><span>What happened?</span><textarea name="details" maxlength="2000" required></textarea></label>
+                <button class="field-submit" type="submit">Submit report privately</button>
             </form>
         </div>
     </dialog>
