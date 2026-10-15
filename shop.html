@@ -3,63 +3,196 @@
 <head>
     <meta charset="UTF-8">
     <script>
-       (function () {
-       const saved = localStorage.getItem('theme');
-       const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-       if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-       })();
+        (function () {
+            const saved = localStorage.getItem('theme');
+            const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AloSwift</title>
+    <meta name="description" content="Discover independent sellers and shop thoughtfully selected finds at AloSwift.">
+    <title>Shop | AloSwift</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://images.unsplash.com">
     <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/boxicons/2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <header class="site-header">
         <div class="site-header__inner">
             <a href="index.html" class="logo">AloSwift</a>
-
-            <div class="auth" id="auth">
-                <button class="auth__trigger" id="loginTrigger" aria-pressed="false" onclick="window.location.href='login.html'">Log in</button>
-                <button class="auth__trigger auth__trigger--primary" id="signupTrigger" aria-pressed="false" onclick="window.location.href='signup.html'">Sign up</button>
+            <nav class="shop-nav" aria-label="Main navigation">
+                <a href="shop.html" class="nav-link" aria-current="page">Shop</a>
+                <a href="about.html" class="nav-link">Our story</a>
+                <a href="contact.html" class="nav-link">Contact</a>
+            </nav>
+            <div class="shop-header-actions">
+                <div class="auth" id="authSignedOut">
+                    <a class="auth__trigger" href="login.html">Log in</a>
+                    <a class="auth__trigger auth__trigger--primary" href="signup.html">Join AloSwift</a>
+                </div>
+                <div class="auth nav-account" id="authSignedIn" hidden>
+                    <span class="nav-account__name"><i class="bx bx-user-circle" aria-hidden="true"></i><span id="accountName">Account</span></span>
+                    <button class="auth__trigger" id="listingTrigger" type="button">My shop</button>
+                    <button class="auth__trigger" id="logoutTrigger" type="button">Sign out</button>
+                </div>
+                <button class="cart-trigger" id="cartTrigger" type="button" aria-label="Open shopping bag">
+                    <i class="bx bx-shopping-bag" aria-hidden="true"></i><span>Bag</span><span class="cart-count" id="cartCount">0</span>
+                </button>
                 <button class="theme-toggle" id="themeToggle" aria-pressed="false" aria-label="Toggle dark theme">🌙</button>
             </div>
         </div>
     </header>
 
-    <main>
-
-
-        <section class="auth-view" id="authView" hidden>
-
+    <main class="shop-main">
+        <section class="shop-hero">
+            <p class="hero__kicker">THE ALOSWIFT MARKETPLACE</p>
+            <h1 class="shop-hero__title">Find your next <em>favourite.</em></h1>
+            <p class="shop-hero__copy">A considered collection of pieces from independent local sellers.</p>
+            <a href="#catalog" class="shop-hero__link">Explore the collection <i class="bx bx-down-arrow-alt" aria-hidden="true"></i></a>
         </section>
+
+        <section class="catalog" id="catalog" aria-labelledby="catalogTitle">
+            <div class="catalog__heading">
+                <div>
+                    <p class="section-eyebrow">CURATED FOR YOU</p>
+                    <h2 id="catalogTitle">The collection</h2>
+                </div>
+                <p class="catalog__count" id="catalogCount" aria-live="polite"></p>
+            </div>
+            <div class="catalog-controls">
+                <label class="search-field">
+                    <i class="bx bx-search" aria-hidden="true"></i>
+                    <span class="sr-only">Search products</span>
+                    <input id="productSearch" type="search" placeholder="Search the collection">
+                </label>
+                <label class="select-field">
+                    <span class="sr-only">Filter by category</span>
+                    <select id="categoryFilter">
+                        <option value="all">All categories</option>
+                        <option value="Clothing">Clothing</option>
+                        <option value="Accessories">Accessories</option>
+                        <option value="Home">Home & living</option>
+                    </select>
+                </label>
+                <label class="select-field">
+                    <span class="sr-only">Sort products</span>
+                    <select id="sortProducts">
+                        <option value="featured">Featured</option>
+                        <option value="price-asc">Price: low to high</option>
+                        <option value="price-desc">Price: high to low</option>
+                        <option value="name">Name: A to Z</option>
+                    </select>
+                </label>
+            </div>
+            <div class="product-grid" id="productGrid" aria-live="polite"></div>
+            <div class="catalog-empty" id="catalogEmpty" hidden>
+                <i class="bx bx-search-alt" aria-hidden="true"></i>
+                <h3>Nothing found just yet</h3>
+                <p>Try another search or choose a different category.</p>
+                <button class="text-button" id="resetFilters" type="button">Clear filters</button>
+            </div>
+        </section>
+
+        <section class="supplier-callout">
+            <div>
+                <p class="section-eyebrow">FOR INDEPENDENT SELLERS</p>
+                <h2>Your products deserve a good home.</h2>
+                <p>Open your shop, add your pieces and manage your listings in one place.</p>
+            </div>
+            <a href="signup.html?role=supplier" class="hero__cta" id="supplierCta">Become a supplier <i class="bx bx-right-arrow-alt" aria-hidden="true"></i></a>
+        </section>
+
+        <section class="customer-dashboard" id="customerDashboard" hidden aria-labelledby="customerDashboardTitle">
+            <div class="dashboard-heading">
+                <div>
+                    <p class="section-eyebrow">YOUR ALOSWIFT ACCOUNT</p>
+                    <h2 id="customerDashboardTitle">Your orders</h2>
+                    <p class="dashboard-subtitle">A little home for the things you have brought home.</p>
+                </div>
+                <button class="text-button" id="backToShopFromAccount" type="button"><i class="bx bx-arrow-back" aria-hidden="true"></i> Back to shop</button>
+            </div>
+            <div id="customerOrders" class="customer-orders"></div>
+            <div class="customer-empty" id="customerOrdersEmpty" hidden>
+                <i class="bx bx-package" aria-hidden="true"></i><h3>Your story starts here</h3><p>Your demo orders will appear here after checkout.</p>
+                <button class="text-button" id="shopFromAccount" type="button">Explore the collection</button>
+            </div>
+            <div class="supplier-callout supplier-callout--account" id="accountSupplierCallout">
+                <div><p class="section-eyebrow">HAVE SOMETHING TO SHARE?</p><h2>Open your own shop.</h2><p>Turn your customer account into a supplier account and start listing your products.</p></div>
+                <button class="hero__cta" id="upgradeToSupplier" type="button">Start selling <i class="bx bx-right-arrow-alt" aria-hidden="true"></i></button>
+            </div>
+        </section>
+
+        <section class="supplier-dashboard" id="supplierDashboard" hidden aria-labelledby="dashboardTitle">
+            <div class="dashboard-heading">
+                <div>
+                    <p class="section-eyebrow">SUPPLIER STUDIO</p>
+                    <h2 id="dashboardTitle">Your shop</h2>
+                    <p class="dashboard-subtitle">Manage your products and keep your shop up to date.</p>
+                </div>
+                <div class="dashboard-actions">
+                    <button class="text-button" id="supplierOrders" type="button">My orders</button>
+                    <button class="text-button" id="backToShop" type="button"><i class="bx bx-arrow-back" aria-hidden="true"></i> Back to shop</button>
+                </div>
+            </div>
+            <div class="dashboard-layout">
+                <form class="product-form" id="productForm">
+                    <h3 id="productFormTitle">Add a product</h3>
+                    <label class="field"><span>Product name</span><input name="name" maxlength="70" required placeholder="e.g. Everyday linen shirt"></label>
+                    <label class="field"><span>Description</span><textarea name="description" rows="3" maxlength="240" required placeholder="Tell shoppers what makes it special"></textarea></label>
+                    <div class="form-row">
+                        <label class="field"><span>Price (N$)</span><input name="price" type="number" min="1" step="0.01" required placeholder="450"></label>
+                        <label class="field"><span>Available stock</span><input name="stock" type="number" min="0" step="1" required placeholder="1"></label>
+                    </div>
+                    <label class="field"><span>Category</span><select name="category" required><option value="Clothing">Clothing</option><option value="Accessories">Accessories</option><option value="Home">Home & living</option></select></label>
+                    <label class="field"><span>Image URL <span class="field__optional">(optional)</span></span><input name="image" type="url" placeholder="https://…"></label>
+                    <div class="product-form__actions">
+                        <button class="field-submit" id="productSubmit" type="submit">Add product</button>
+                        <button class="text-button" id="cancelEdit" type="button" hidden>Cancel edit</button>
+                    </div>
+                </form>
+                <div class="seller-listings">
+                    <div class="seller-listings__heading"><h3>Your listings</h3><span id="listingCount"></span></div>
+                    <div id="sellerProducts" class="seller-products"></div>
+                    <p class="seller-empty" id="sellerEmpty" hidden>Your shop is ready for its first product.</p>
+                </div>
+            </div>
+        </section>
+        <p class="prototype-note"><i class="bx bx-info-circle" aria-hidden="true"></i> AloSwift is a local demo. Accounts, listings and orders are stored in this browser; payments and seller verification are not connected.</p>
     </main>
 
-    <footer class="site-footer">
-        <div class="site-footer__inner" hidden>
-            <div class="site-footer__top">
-                <a href="index.html" class="logo logo--small">AloSwift</a>
-
-                <button class="footer-toggle" id="footerToggle" aria-expanded="false" aria-controls="footerNav">
-                    <span class="footer-toggle__bar"></span>
-                    <span class="footer-toggle__bar"></span>
-                    <span class="footer-toggle__bar"></span>
-                    <span class="sr-only">Menu</span>
-                </button>
+    <dialog class="cart-dialog" id="cartDialog" aria-labelledby="cartTitle">
+        <div class="cart-panel">
+            <div class="cart-heading">
+                <div><p class="section-eyebrow">YOUR SELECTION</p><h2 id="cartTitle">Shopping bag <span id="cartHeadingCount"></span></h2></div>
+                <button class="icon-button" id="closeCart" type="button" aria-label="Close shopping bag"><i class="bx bx-x" aria-hidden="true"></i></button>
             </div>
+            <div class="cart-items" id="cartItems"></div>
+            <div class="cart-empty" id="cartEmpty" hidden>
+                <i class="bx bx-shopping-bag" aria-hidden="true"></i><h3>Your bag is waiting</h3><p>When something catches your eye, add it here.</p>
+            </div>
+            <div class="cart-summary" id="cartSummary">
+                <div><span>Subtotal</span><strong id="cartSubtotal">N$0.00</strong></div>
+                <p>Delivery is arranged directly with the supplier.</p>
+                <button class="field-submit" id="checkoutButton" type="button">Place demo order</button>
+            </div>
+        </div>
+    </dialog>
 
-            <nav class="footer-nav" id="footerNav">
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <div class="site-footer__top"><a href="index.html" class="logo logo--small">AloSwift</a></div>
+            <nav class="footer-nav" aria-label="Footer navigation">
                 <a href="shop.html" class="nav-link">Shop</a>
                 <a href="about.html" class="nav-link">About</a>
                 <a href="contact.html" class="nav-link">Contact</a>
             </nav>
-
             <p class="footer-copy">&copy; 2026 AloSwift. All rights reserved.</p>
         </div>
     </footer>
-
     <script src="script.js"></script>
 </body>
 </html>
