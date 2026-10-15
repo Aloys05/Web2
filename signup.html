@@ -11,6 +11,7 @@
 </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AloSwift</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
@@ -43,13 +44,18 @@
                     </label>
                     <label class="field">
                         <span>Password</span>
-                        <input type="password" name="password" autocomplete="new-password" required>
+                        <input type="password" name="password" autocomplete="new-password" minlength="8" required>
+                    </label>
+                    <label class="field">
+                        <span>I’m joining as</span>
+                        <select name="role" required>
+                            <option value="customer">Customer — discover and shop</option>
+                            <option value="supplier">Supplier — list and manage products</option>
+                        </select>
                     </label>
                     <button type="submit" class="field-submit">Create account</button>
                 </form>
-                <p class="auth-form__foot">
-                    Already have an account? <button type="button" class="link-btn" onclick="window.location.href='login.html'">Log in</button>
-                </p>
+                <p class="auth-form__foot">Already have an account? <a class="link-btn" href="login.html">Log in</a></p>
                 <p class="auth-form__foot">
                     <a href="shop.html" class="link-btn">Continue browsing as a guest</a>
                 </p>
@@ -58,7 +64,7 @@
     </main>
 
     <footer class="site-footer">
-        <div class="site-footer__inner" hidden>
+        <div class="site-footer__inner">
             <div class="site-footer__top">
                 <a href="index.html" class="logo logo--small">AloSwift</a>
 
@@ -70,7 +76,7 @@
                 </button>
             </div>
 
-            <nav class="footer-nav" id="footerNav">
+            <nav class="footer-nav" id="footerNav" hidden>
                 <a href="shop.html" class="nav-link">Shop</a>
                 <a href="about.html" class="nav-link">About</a>
                 <a href="contact.html" class="nav-link">Contact</a>

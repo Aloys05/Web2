@@ -3,63 +3,334 @@
 <head>
     <meta charset="UTF-8">
     <script>
-       (function () {
-       const saved = localStorage.getItem('theme');
-       const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-       if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-       })();
+        (function () {
+            const saved = localStorage.getItem('theme');
+            const theme = saved || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+            if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+        })();
     </script>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AloSwift</title>
+    <meta name="description" content="Discover independent sellers and shop thoughtfully selected finds at AloSwift.">
+    <title>Shop | AloSwift</title>
+    <link rel="icon" type="image/png" href="favicon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:opsz,wght@6..96,400;6..96,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/boxicons/2.1.4/css/boxicons.min.css" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-
     <header class="site-header">
         <div class="site-header__inner">
             <a href="index.html" class="logo">AloSwift</a>
-
-            <div class="auth" id="auth">
-                <button class="auth__trigger" id="loginTrigger" aria-pressed="false" onclick="window.location.href='login.html'">Log in</button>
-                <button class="auth__trigger auth__trigger--primary" id="signupTrigger" aria-pressed="false" onclick="window.location.href='signup.html'">Sign up</button>
+            <div class="shop-header-actions">
+                <div class="auth" id="authSignedOut">
+                    <a class="auth__trigger" href="login.html">Log in</a>
+                    <a class="auth__trigger auth__trigger--primary" href="signup.html">Join AloSwift</a>
+                </div>
+                <div class="auth nav-account" id="authSignedIn" hidden>
+                    <button class="nav-account__name profile-trigger" id="profileTrigger" type="button" aria-label="Open your profile">
+                        <img class="profile-trigger__avatar" id="headerAvatar" alt="">
+                        <i class="bx bx-user-circle profile-trigger__icon" id="headerAvatarPlaceholder" aria-hidden="true"></i>
+                        <span class="profile-trigger__label" id="accountName">My profile</span>
+                    </button>
+                    <button class="auth__trigger" id="listingTrigger" type="button">My shop</button>
+                    <button class="auth__trigger" id="openMessages" type="button">Messages</button>
+                    <button class="auth__trigger" id="logoutTrigger" type="button">Sign out</button>
+                </div>
+                <button class="cart-trigger" id="cartTrigger" type="button" aria-label="Open shopping bag">
+                    <i class="bx bx-shopping-bag" aria-hidden="true"></i><span>Bag</span><span class="cart-count" id="cartCount">0</span>
+                </button>
                 <button class="theme-toggle" id="themeToggle" aria-pressed="false" aria-label="Toggle dark theme">🌙</button>
             </div>
         </div>
     </header>
 
-    <main>
+    <main class="shop-main">
+        <section class="shop-hero">
+            <p class="hero__kicker">THE ALOSWIFT MARKETPLACE</p>
+            <h1 class="shop-hero__title">Find your next <em>favourite.</em></h1>
+            <p class="shop-hero__copy">A considered collection of pieces from independent local sellers.</p>
+            <a href="#catalog" class="shop-hero__link">Explore the collection <i class="bx bx-down-arrow-alt" aria-hidden="true"></i></a>
+        </section>
 
+        <section class="catalog" id="catalog" aria-labelledby="catalogTitle">
+            <div class="catalog__heading">
+                <div>
+                    <p class="section-eyebrow">CURATED FOR YOU</p>
+                    <h2 id="catalogTitle">The collection</h2>
+                </div>
+                <p class="catalog__count" id="catalogCount" aria-live="polite"></p>
+            </div>
+            <div class="catalog-controls">
+                <label class="search-field">
+                    <i class="bx bx-search" aria-hidden="true"></i>
+                    <span class="sr-only">Search products</span>
+                    <input id="productSearch" type="search" placeholder="Search the collection">
+                </label>
+                <label class="select-field">
+                    <span class="sr-only">Filter by category</span>
+                    <select id="categoryFilter">
+                        <option value="all">All categories</option>
+                        <option value="Clothing">Clothing</option>
+                        <option value="Accessories">Accessories</option>
+                        <option value="Home">Home & living</option>
+                    </select>
+                </label>
+                <label class="select-field">
+                    <span class="sr-only">Sort products</span>
+                    <select id="sortProducts">
+                        <option value="featured">Featured</option>
+                        <option value="price-asc">Price: low to high</option>
+                        <option value="price-desc">Price: high to low</option>
+                        <option value="name">Name: A to Z</option>
+                    </select>
+                </label>
+            </div>
+            <div class="product-grid" id="productGrid" aria-live="polite"></div>
+            <div class="catalog-empty" id="catalogEmpty" hidden>
+                <i class="bx bx-search-alt" aria-hidden="true"></i>
+                <h3>Nothing found just yet</h3>
+                <p>Try another search or choose a different category.</p>
+                <button class="text-button" id="resetFilters" type="button">Clear filters</button>
+            </div>
+        </section>
 
-        <section class="auth-view" id="authView" hidden>
+        <section class="supplier-callout">
+            <div>
+                <p class="section-eyebrow">FOR INDEPENDENT SELLERS</p>
+                <h2>Your products deserve a good home.</h2>
+                <p>Open your shop, add your pieces and manage your listings in one place.</p>
+            </div>
+            <a href="signup.html?role=supplier" class="hero__cta" id="supplierCta">Become a supplier <i class="bx bx-right-arrow-alt" aria-hidden="true"></i></a>
+        </section>
 
+        <section class="customer-dashboard" id="customerDashboard" hidden aria-labelledby="customerDashboardTitle">
+            <div class="dashboard-heading">
+                <div>
+                    <p class="section-eyebrow">YOUR ALOSWIFT ACCOUNT</p>
+                    <h2 id="customerDashboardTitle">Your profile</h2>
+                    <p class="dashboard-subtitle">Manage the details you choose to share with a seller.</p>
+                </div>
+                <button class="text-button" id="backToShopFromAccount" type="button"><i class="bx bx-arrow-back" aria-hidden="true"></i> Back to shop</button>
+            </div>
+            <div class="profile-layout">
+                <div class="profile-card" id="accountProfileCard"></div>
+                <form class="profile-form" id="profileForm">
+                    <h3>Personal details</h3>
+                    <p class="profile-form__intro" id="profilePrivacyNote"></p>
+                    <label class="avatar-dropzone" id="profileDropzone" for="profilePhoto">
+                        <img id="profilePhotoPreview" alt="Profile picture preview" hidden>
+                        <span class="avatar-dropzone__placeholder" id="profilePhotoPlaceholder"><i class="bx bx-camera" aria-hidden="true"></i><strong>Add a profile picture</strong><small>Choose a photo or drop it here</small></span>
+                        <input id="profilePhoto" name="profilePhoto" type="file" accept="image/*" hidden>
+                    </label>
+                    <div class="profile-fields">
+                        <label class="field"><span>Full name</span><input name="name" maxlength="80" autocomplete="name" required></label>
+                        <label class="field"><span>Email</span><input name="email" type="email" autocomplete="email" readonly></label>
+                        <label class="field"><span>Phone or WhatsApp</span><input name="phone" type="tel" maxlength="30" autocomplete="tel" required placeholder="+264 …"></label>
+                        <label class="field"><span>Town / suburb</span><input name="town" maxlength="80" autocomplete="address-level3" required></label>
+                        <label class="field"><span>City</span><input name="city" maxlength="80" autocomplete="address-level2" required></label>
+                        <label class="field"><span>Region</span><input name="region" maxlength="80" autocomplete="address-level1" required></label>
+                        <label class="field"><span>Country</span><input name="country" maxlength="80" autocomplete="country-name" required></label>
+                        <label class="field profile-field--supplier" id="businessNameField"><span>Business / shop name</span><input name="businessName" maxlength="100" placeholder="Your public shop name"></label>
+                        <label class="field profile-field--supplier" id="businessIdField"><span>Business registration (optional)</span><input name="businessId" maxlength="80" placeholder="Registration number"></label>
+                        <label class="field profile-field--supplier" id="bioField"><span>About your shop</span><textarea name="bio" rows="3" maxlength="280" placeholder="What do you sell and what should buyers know?"></textarea></label>
+                    </div>
+                    <button class="field-submit" type="submit">Save profile</button>
+                </form>
+            </div>
+            <section class="dashboard-panel my-reviews" aria-labelledby="myCustomerReviewsTitle">
+                <h3 id="myCustomerReviewsTitle">Reviews about you</h3>
+                <div id="customerReviews"></div>
+            </section>
+        </section>
+
+        <section class="supplier-dashboard" id="supplierDashboard" hidden aria-labelledby="dashboardTitle">
+            <div class="dashboard-heading">
+                <div>
+                    <p class="section-eyebrow">SUPPLIER STUDIO</p>
+                    <h2 id="dashboardTitle">Your shop</h2>
+                    <p class="dashboard-subtitle">Manage your products and keep your shop up to date.</p>
+                </div>
+                <div class="dashboard-actions">
+                    <button class="text-button" id="backToShop" type="button"><i class="bx bx-arrow-back" aria-hidden="true"></i> Back to shop</button>
+                </div>
+            </div>
+            <div class="dashboard-layout">
+                <form class="product-form" id="productForm">
+                    <h3 id="productFormTitle">Add a product</h3>
+                    <label class="field"><span>Product name</span><input name="name" maxlength="70" required placeholder="e.g. Everyday linen shirt"></label>
+                    <label class="field"><span>Description</span><textarea name="description" rows="3" maxlength="240" required placeholder="Tell shoppers what makes it special"></textarea></label>
+                    <div class="form-row">
+                        <label class="field"><span>Price (N$)</span><input name="price" type="number" min="1" step="0.01" required placeholder="450"></label>
+                        <label class="field"><span>Available stock</span><input name="stock" type="number" min="0" step="1" required placeholder="1"></label>
+                    </div>
+                    <label class="field"><span>Category</span><select name="category" required><option value="Clothing">Clothing</option><option value="Accessories">Accessories</option><option value="Home">Home & living</option></select></label>
+                    <div class="field">
+                        <span>Product pictures <span class="field__optional">(optional)</span></span>
+                        <label class="photo-dropzone" id="productDropzone" for="productPhotos">
+                            <i class="bx bx-cloud-upload" aria-hidden="true"></i>
+                            <span id="productPhotoLabel">Choose photos or drop them here</span>
+                            <small>JPG, PNG or WebP · up to 8 MB each</small>
+                            <input id="productPhotos" name="productPhotos" type="file" accept="image/jpeg,image/png,image/webp" multiple hidden>
+                        </label>
+                        <div class="photo-preview-grid" id="productPhotoPreviews"></div>
+                    </div>
+                    <div class="product-form__actions">
+                        <button class="field-submit" id="productSubmit" type="submit">Add product</button>
+                        <button class="text-button" id="cancelEdit" type="button" hidden>Cancel edit</button>
+                    </div>
+                </form>
+                <div class="seller-listings">
+                    <div class="seller-listings__heading"><h3>Your listings</h3><span id="listingCount"></span></div>
+                    <div id="sellerProducts" class="seller-products"></div>
+                    <p class="seller-empty" id="sellerEmpty" hidden>Your shop is ready for its first product.</p>
+                </div>
+            </div>
+            <section class="dashboard-panel" aria-labelledby="supplierReviewTitle">
+                <h3 id="supplierReviewTitle">Review a customer</h3>
+                <p>Review a customer you have exchanged an enquiry with. Use the email address they shared with you.</p>
+                <form class="review-form" id="customerReviewForm">
+                    <label class="field"><span>Customer email</span><input name="targetEmail" type="email" required></label>
+                    <label class="field"><span>Rating</span><select name="stars" required><option value="">Choose stars</option><option value="5">★★★★★ — Excellent</option><option value="4">★★★★ — Good</option><option value="3">★★★ — Fair</option><option value="2">★★ — Poor</option><option value="1">★ — Very poor</option></select></label>
+                    <label class="field"><span>Comment</span><textarea name="comment" maxlength="1000" required></textarea></label>
+                    <button class="field-submit" type="submit">Submit review</button>
+                </form>
+                <form class="review-form admin-report-form" id="supplierReportForm">
+                    <h3>Report a customer</h3>
+                    <label class="field"><span>Customer email</span><input name="subjectEmail" type="email" required></label>
+                    <label class="field"><span>Reason</span><select name="reason" required><option value="scam">Suspected scam</option><option value="imposter">Impersonation</option><option value="misleading">Misleading information</option><option value="other">Other concern</option></select></label>
+                    <label class="field"><span>Details</span><textarea name="details" maxlength="2000" required></textarea></label>
+                    <button class="text-button" type="submit">Send report to admin</button>
+                </form>
+            </section>
+            <section class="dashboard-panel my-reviews" aria-labelledby="mySupplierReviewsTitle">
+                <h3 id="mySupplierReviewsTitle">Reviews about your shop</h3>
+                <div id="supplierReviews"></div>
+            </section>
+        </section>
+
+        <section class="admin-dashboard" id="adminDashboard" hidden aria-labelledby="adminDashboardTitle">
+            <div class="dashboard-heading">
+                <div>
+                    <p class="section-eyebrow">MASTER ADMIN</p>
+                    <h2 id="adminDashboardTitle">Marketplace overview</h2>
+                    <p class="dashboard-subtitle">Moderate listings and accounts, review reports, and contact members.</p>
+                </div>
+                <div class="dashboard-actions">
+                    <button class="text-button" id="refreshAdmin" type="button">Refresh data</button>
+                    <button class="text-button" id="adminOpenInbox" type="button">Open admin inbox</button>
+                </div>
+            </div>
+            <div class="admin-stats">
+                <article><span>Unique visitors</span><strong id="adminVisitorCount">0</strong></article>
+                <article><span>Accounts created</span><strong id="adminAccountCount">0</strong></article>
+                <article><span>Active listings</span><strong id="adminProductCount">0</strong></article>
+                <article><span>Open reports</span><strong id="adminReportCount">0</strong></article>
+                <article><span>Unread messages</span><strong id="adminUnreadCount">0</strong></article>
+            </div>
+            <section class="dashboard-panel">
+                <h3>Accounts</h3>
+                <p>Creation dates, latest page visits and profile contact details are shown here. Passwords are never viewable.</p>
+                <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Account</th><th>Created</th><th>Last visit</th><th>Status</th><th>Moderation</th></tr></thead><tbody id="adminAccounts"></tbody></table></div>
+            </section>
+            <section class="dashboard-panel">
+                <h3>Start a conversation</h3>
+                <form class="review-form" id="adminMessageForm">
+                    <label class="field"><span>Account</span><select name="recipientId" id="adminMessageRecipient" required></select></label>
+                    <button class="field-submit" type="submit">Open conversation</button>
+                </form>
+            </section>
+            <section class="dashboard-panel">
+                <h3>Account reports</h3>
+                <div id="adminReports" class="admin-list"></div>
+            </section>
+            <section class="dashboard-panel">
+                <h3>Customer and supplier reviews</h3>
+                <div id="adminReviews" class="admin-list"></div>
+            </section>
+            <section class="dashboard-panel">
+                <h3>All product listings</h3>
+                <label class="search-field admin-product-search"><i class="bx bx-search" aria-hidden="true"></i><span class="sr-only">Filter product listings</span><input id="adminProductFilter" type="search" placeholder="Filter by product, supplier or description"></label>
+                <div id="adminProducts" class="admin-list"></div>
+            </section>
+            <section class="dashboard-panel">
+                <h3>Daily website traffic</h3>
+                <div class="admin-table-wrap"><table class="admin-table"><thead><tr><th>Date</th><th>Unique visitors</th><th>Page views</th></tr></thead><tbody id="adminVisits"></tbody></table></div>
+            </section>
         </section>
     </main>
 
-    <footer class="site-footer">
-        <div class="site-footer__inner" hidden>
-            <div class="site-footer__top">
-                <a href="index.html" class="logo logo--small">AloSwift</a>
-
-                <button class="footer-toggle" id="footerToggle" aria-expanded="false" aria-controls="footerNav">
-                    <span class="footer-toggle__bar"></span>
-                    <span class="footer-toggle__bar"></span>
-                    <span class="footer-toggle__bar"></span>
-                    <span class="sr-only">Menu</span>
-                </button>
+    <dialog class="cart-dialog" id="cartDialog" aria-labelledby="cartTitle">
+        <div class="cart-panel">
+            <div class="cart-heading">
+                <div><p class="section-eyebrow">YOUR SELECTION</p><h2 id="cartTitle">Shopping bag <span id="cartHeadingCount"></span></h2></div>
+                <button class="icon-button" id="closeCart" type="button" aria-label="Close shopping bag"><i class="bx bx-x" aria-hidden="true"></i></button>
             </div>
+            <div class="cart-items" id="cartItems"></div>
+            <div class="cart-empty" id="cartEmpty" hidden>
+                <i class="bx bx-shopping-bag" aria-hidden="true"></i><h3>Your bag is waiting</h3><p>When something catches your eye, add it here.</p>
+            </div>
+            <div class="cart-summary" id="cartSummary">
+                <p>Choose an item to contact its supplier directly. You and the seller can arrange payment, collection and delivery together.</p>
+            </div>
+        </div>
+    </dialog>
 
-            <nav class="footer-nav" id="footerNav">
+    <dialog class="profile-dialog" id="profileDialog" aria-labelledby="profileDialogTitle">
+        <form method="dialog" class="profile-dialog__close"><button class="icon-button" type="submit" aria-label="Close profile"><i class="bx bx-x" aria-hidden="true"></i></button></form>
+        <div class="profile-dialog__content">
+            <div id="publicProfileContent"></div>
+            <button class="field-submit" id="editProfileButton" type="button">Edit my profile</button>
+        </div>
+    </dialog>
+
+    <dialog class="messages-dialog" id="messagesDialog" aria-labelledby="messagesTitle">
+        <section class="messages-panel">
+            <header class="messages-panel__header">
+                <div><p class="section-eyebrow">PRIVATE MARKETPLACE MESSAGES</p><h2 id="messagesTitle">Messages</h2></div>
+                <button class="text-button" id="startSupportConversation" type="button">Contact AloSwift support</button>
+                <button class="icon-button" id="closeMessages" type="button" aria-label="Close messages">×</button>
+            </header>
+            <div class="messages-layout">
+                <nav class="conversation-list" id="conversationList" aria-label="Conversations"></nav>
+                <section class="conversation-view" aria-label="Selected conversation">
+                    <header class="conversation-view__header"><div><h3 id="conversationHeading">Your messages</h3><p id="conversationProduct"></p></div></header>
+                    <div class="conversation-messages" id="conversationMessages" aria-live="polite"></div>
+                    <form class="conversation-composer" id="conversationComposer" hidden>
+                        <label class="sr-only" for="conversationMessage">Write a message</label>
+                        <textarea id="conversationMessage" name="message" maxlength="9000" rows="2" placeholder="Write a message…" required></textarea>
+                        <button class="field-submit" type="submit" aria-label="Send message"><i class="bx bx-send" aria-hidden="true"></i><span>Send</span></button>
+                    </form>
+                    <p class="conversation-privacy">Messages are visible to conversation participants and stored by AloSwift.</p>
+                </section>
+            </div>
+        </section>
+    </dialog>
+
+    <dialog class="report-dialog" id="reportDialog" aria-labelledby="reportTitle">
+        <div class="report-panel">
+            <div class="cart-heading"><div><p class="section-eyebrow">SAFETY REPORT</p><h2 id="reportTitle">Report this account</h2></div><button class="icon-button" id="closeReport" type="button" aria-label="Close report">×</button></div>
+            <form class="review-form" id="reportForm">
+                <label class="field"><span>Reason</span><select name="reason" required><option value="scam">Suspected scam</option><option value="imposter">Impersonation</option><option value="misleading">Misleading information</option><option value="other">Other concern</option></select></label>
+                <label class="field"><span>What happened?</span><textarea name="details" maxlength="2000" required></textarea></label>
+                <button class="field-submit" type="submit">Submit report privately</button>
+            </form>
+        </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+    <footer class="site-footer">
+        <div class="site-footer__inner">
+            <div class="site-footer__top"><a href="index.html" class="logo logo--small">AloSwift</a></div>
+            <nav class="footer-nav" aria-label="Footer navigation">
                 <a href="shop.html" class="nav-link">Shop</a>
                 <a href="about.html" class="nav-link">About</a>
                 <a href="contact.html" class="nav-link">Contact</a>
             </nav>
-
             <p class="footer-copy">&copy; 2026 AloSwift. All rights reserved.</p>
         </div>
     </footer>
-
     <script src="script.js"></script>
 </body>
 </html>
